@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>CatDock Terminal</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --panel-bg: #12121a;
+            --border: #1e1e2e;
+            --accent: #cba6f7;
+            --accent2: #89b4fa;
+            --text: #cdd6f4;
+            --text-dim: #6c7086;
+            --danger: #f38ba8;
+            --success: #a6e3a1;
+            --warning: #f9e2af;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'JetBrains Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-shrink: 0;
+        }
+
+        .header .logo {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+
+        .header .status {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-left: auto;
+        }
+
+        .header .status.connected { color: var(--success); }
+        .header .status.disconnected { color: var(--danger); }
+
+        .controls {
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 6px 12px;
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .controls .group {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .controls .group::after {
+            content: '';
+            width: 1px;
+            height: 20px;
+            background: var(--border);
+            margin: 0 4px;
+        }
+
+        .controls .group:last-child::after { display: none; }
+
+        .btn {
+            background: var(--border);
+            color: var(--text);
+            border: 1px solid transparent;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+
+        .btn:hover {
+            background: #2a2a3a;
+            border-color: var(--accent);
+        }
+
+        .btn:active {
+            background: var(--accent);
+            color: var(--bg);
+        }
+
+        .btn.accent { background: var(--accent); color: var(--bg); font-weight: 600; }
+        .btn.accent:hover { background: #d4b8ff; }
+        .btn.danger { background: var(--danger); color: var(--bg); font-weight: 600; }
+        .btn.danger:hover { background: #f5a0b0; }
+        .btn.warn { background: var(--warning); color: var(--bg); }
+        .btn.success { background: var(--success); color: var(--bg); }
+
+        #terminal-container {
+            flex: 1;
+            min-height: 0;
+            padding: 4px;
+            background: var(--bg);
+        }
+
+        #terminal {
+            width: 100%;
+            height: 100%;
+        }
+
+        #hidden-input {
+            position: absolute;
+            left: -9999px;
+            top: -9999px;
+            opacity: 0;
+            z-index: -1;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            background: var(--success);
+            color: var(--bg);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: inherit;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.2s;
+            z-index: 100;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { background: var(--danger); }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="logo">CatDock Terminal</span>
+        <span class="status disconnected" id="status">disconnected</span>
+    </div>
+
+    <div class="controls" id="controls">
+        <div class="group">
+            <button class="btn accent" onclick="sendCmd('')" title="Send Enter">Enter</button>
+            <button class="btn" onclick="sendCmd('\x03')" title="Ctrl+C">Ctrl+C</button>
+            <button class="btn" onclick="sendCmd('\x04')" title="Ctrl+D">Ctrl+D</button>
+            <button class="btn" onclick="sendCmd('\x1a')" title="Ctrl+Z">Ctrl+Z</button>
+        </div>
+        <div class="group">
+            <button class="btn" onclick="sendText('ls -la')">ls</button>
+            <button class="btn" onclick="sendText('pwd')">pwd</button>
+            <button class="btn" onclick="sendText('cd ..')">cd ..</button>
+            <button class="btn" onclick="sendText('cat docker-compose.yml')">cat compose</button>
+        </div>
+        <div class="group">
+            <button class="btn" onclick="sendText('docker ps')">docker ps</button>
+            <button class="btn" onclick="sendText('docker logs --tail 50 $(docker ps -q)')">docker logs</button>
+            <button class="btn" onclick="sendText('htop')">htop</button>
+            <button class="btn" onclick="sendText('df -h')">df -h</button>
+        </div>
+        <div class="group">
+            <button class="btn" onclick="sendText('git pull')">git pull</button>
+            <button class="btn" onclick="sendText('pip install -r requirements.txt')">pip install</button>
+            <button class="btn" onclick="sendText('systemctl status')">systemctl</button>
+        </div>
+        <div class="group">
+            <button class="btn danger" onclick="sendText('. restart')">.restart</button>
+            <button class="btn warn" onclick="sendText('pm2 status')">pm2 status</button>
+            <button class="btn success" onclick="reconnect()">Reconnect</button>
+        </div>
+    </div>
+
+    <div id="terminal-container">
+        <div id="terminal"></div>
+    </div>
+    <input type="text" id="hidden-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.min.js"></script>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const containerId = urlParams.get('container_id');
+        const serverId = urlParams.get('server_id');
+
+        if (!token) {
+            document.getElementById('terminal').innerText = 'Error: Token required. Add ?token=YOUR_TOKEN to the URL.';
+            document.getElementById('terminal').style.color = 'var(--danger)';
+            document.getElementById('terminal').style.padding = '20px';
+        }
+
+        let socket = null;
+        let term = null;
+        let fitAddon = null;
+
+        function showToast(msg, isError = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast' + (isError ? ' error' : '');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        function connect() {
+            if (!token) return;
+
+            const container = document.getElementById('terminal');
+            container.innerHTML = '';
+
+            term = new Terminal({
+                cursorBlink: true,
+                fontFamily: '"JetBrains Mono", "Menlo", "Monaco", "Consolas", monospace',
+                fontSize: 13,
+                theme: {
+                    background: '#0a0a0f',
+                    foreground: '#cdd6f4',
+                    cursor: '#cba6f7',
+                    selectionBackground: '#313244',
+                    black: '#45475a',
+                    red: '#f38ba8',
+                    green: '#a6e3a1',
+                    yellow: '#f9e2af',
+                    blue: '#89b4fa',
+                    magenta: '#cba6f7',
+                    cyan: '#94e2d5',
+                    white: '#bac2de',
+                    brightBlack: '#585b70',
+                    brightRed: '#f38ba8',
+                    brightGreen: '#a6e3a1',
+                    brightYellow: '#f9e2af',
+                    brightBlue: '#89b4fa',
+                    brightMagenta: '#f5c2e7',
+                    brightCyan: '#94e2d5',
+                    brightWhite: '#a6adc8'
+                },
+                allowProposedApi: true,
+                scrollback: 5000
+            });
+
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.loadAddon(new WebLinksAddon.WebLinksAddon());
+
+            term.open(container);
+            fitAddon.fit();
+
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            let wsUrl = `${protocol}://${window.location.host}/api/v1/terminal/ws?token=${encodeURIComponent(token)}`;
+            if (containerId) wsUrl += `&container_id=${encodeURIComponent(containerId)}`;
+            if (serverId) wsUrl += `&server_id=${encodeURIComponent(serverId)}`;
+
+            term.writeln(`\x1b[1;35m  CatDock Terminal\x1b[0m`);
+            term.writeln(`  Connecting...`);
+
+            socket = new WebSocket(wsUrl);
+            window.socket = socket;
+
+            const hiddenInput = document.getElementById('hidden-input');
+
+            term.onData(data => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'input', data: data }));
+                }
+            });
+
+            socket.addEventListener('message', event => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'output') term.write(msg.data);
+                } catch (e) { term.write(event.data); }
+            });
+
+            socket.addEventListener('open', () => {
+                document.getElementById('status').textContent = 'connected';
+                document.getElementById('status').className = 'status connected';
+                term.focus();
+                hiddenInput.focus();
+                socket.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+                showToast('Connected');
+            });
+
+            socket.addEventListener('close', (event) => {
+                document.getElementById('status').textContent = 'disconnected';
+                document.getElementById('status').className = 'status disconnected';
+                term.writeln(`\r\n\x1b[31m--- Connection closed (${event.code}) ---\x1b[0m`);
+                showToast('Disconnected', true);
+            });
+
+            socket.addEventListener('error', () => {
+                showToast('Connection error', true);
+            });
+
+            window.addEventListener('resize', () => {
+                fitAddon.fit();
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+                }
+            });
+
+            term.element.addEventListener('click', () => hiddenInput.focus());
+            hiddenInput.addEventListener('input', (e) => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: 'input', data: e.target.value }));
+                }
+                e.target.value = '';
+            });
+        }
+
+        function sendCmd(ctrlChar) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'input', data: ctrlChar }));
+                showToast('Sent: ' + (ctrlChar === '' ? 'Enter' : 'Ctrl+' + String.fromCharCode(ctrlChar.charCodeAt(0) + 64)));
+            }
+        }
+
+        function sendText(cmd) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'input', data: cmd + '\r' }));
+                showToast('Sent: ' + cmd);
+            }
+        }
+
+        function reconnect() {
+            if (socket) {
+                try { socket.close(); } catch(e) {}
+            }
+            connect();
+        }
+
+        document.addEventListener('DOMContentLoaded', connect);
+    </script>
+</body>
+</html>

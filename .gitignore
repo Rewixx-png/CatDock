@@ -1,0 +1,34 @@
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+env/
+.pytest_cache/
+
+.env
+.env.local
+! .env.example
+token.txt
+secrets.json
+/keys/
+
+*.db
+*.db-journal
+*.sqlite
+storage/
+Session/
+logs/
+
+# Docker image build dirs
+hikka_src/
+heroku_src/
+catdock_src/
+legacy_src/
+
+test.sh

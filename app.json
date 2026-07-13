@@ -1,0 +1,39 @@
+{
+  "name": "CatDock",
+  "description": "Lightweight Telegram userbot hosting platform",
+  "repository": "https://github.com/your-org/CatDock",
+  "keywords": ["python", "telegram", "userbot", "docker", "hosting"],
+  "env": {
+    "TELEGRAM_BOT_TOKEN": {
+      "description": "Telegram bot token from @BotFather",
+      "required": true
+    },
+    "TELEGRAM_API_ID": {
+      "description": "Telegram API ID from my.telegram.org",
+      "required": true
+    },
+    "TELEGRAM_API_HASH": {
+      "description": "Telegram API hash from my.telegram.org",
+      "required": true
+    },
+    "OWNER_IDS": {
+      "description": "Comma-separated owner Telegram IDs",
+      "required": true
+    },
+    "WEB_API_SECRET_KEY": {
+      "description": "Secret key for web API auth",
+      "generator": "secret"
+    },
+    "BOT_USERNAME": {
+      "description": "Your bot's username (without @)",
+      "value": "CatDockBot"
+    }
+  },
+  "addons": [
+    "heroku-postgresql:mini",
+    "heroku-redis:mini"
+  ],
+  "buildpacks": [
+    { "url": "heroku/python" }
+  ]
+}
