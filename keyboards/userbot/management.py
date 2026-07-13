@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 
 from lexicon import LEXICON
-from config import SERVERS, IMAGES, TARIFFS, DEFAULT_CPU_LIMIT
+from config import SERVERS, IMAGES, TARIFFS, DEFAULT_CPU_LIMIT, WEB_APP_URL, get_bot_username
 from utils import bot_state
 
 async def get_my_userbots_keyboard(containers: list, language_code: str) -> InlineKeyboardMarkup:
@@ -62,11 +62,23 @@ async def get_container_management_keyboard(
 
     pending_transfer_token = await db.get_active_token_for_container(container_id)
     if pending_transfer_token:
-        bot_info = bot_state.bot_info_cache
-        transfer_link = f"https://t.me/{bot_info.username}?start={pending_transfer_token}"
-
-        builder.row(types.InlineKeyboardButton(text=lex.get('transfer_link_btn', "➡️ Ссылка на передачу"), url=transfer_link))
-        builder.row(types.InlineKeyboardButton(text=lex.get('transfer_cancel_btn', "❌ Отменить передачу"), callback_data=f"cancel_transfer:{container_id}"))
+        if not is_admin_view:
+            bot_info = bot_state.bot_info_cache
+            bot_username = bot_info.username if bot_info else get_bot_username()
+            transfer_link = f"https://t.me/{bot_username}?start={pending_transfer_token}"
+            builder.row(types.InlineKeyboardButton(
+                text=lex.get('transfer_link_btn', "➡️ Ссылка на передачу"),
+                url=transfer_link,
+            ))
+            builder.row(types.InlineKeyboardButton(
+                text=lex.get('transfer_cancel_btn', "❌ Отменить передачу"),
+                callback_data=f"cancel_transfer:{container_id}",
+            ))
+        else:
+            builder.row(types.InlineKeyboardButton(
+                text=lex.get('transfer_status_pending', "⏳ Ожидает передачи"),
+                callback_data="none",
+            ))
 
         if is_admin_view:
             back_text = lex.get('back_to_containers_list_button', "⬅️ Назад")
@@ -100,13 +112,9 @@ async def get_container_management_keyboard(
 
     builder.row(types.InlineKeyboardButton(text=lex.get('get_logs_button', "📋 Логи"), callback_data=f"get_logs_start:{container_id}"))
 
-    if not is_frozen and not is_blocked and container_info.get('tariff_id') != 'free':
+    if not is_admin_view and not is_frozen and not is_blocked and container_info.get('tariff_id') != 'free':
          builder.row(
              types.InlineKeyboardButton(text=lex.get('extend_button', '⏳ Продлить'), callback_data=f"extend_bot_start:{container_id}"),
-         )
-         builder.row(
-             types.InlineKeyboardButton(text=lex.get('upgrade_cpu_button', '⚡️ Увеличить CPU'), callback_data=f"upgrade_cpu_start:{container_id}"),
-             types.InlineKeyboardButton(text=lex.get('upgrade_ram_button', '🧠 Увеличить RAM'), callback_data=f"upgrade_ram_start:{container_id}")
          )
 
     if is_admin_view:
@@ -114,18 +122,23 @@ async def get_container_management_keyboard(
         builder.row(types.InlineKeyboardButton(text=lex.get('admin_change_server_button', "⇄ Сменить сервер"), callback_data=f"admin_change_server_start:{container_id}"))
 
     login_buttons = []
-    login_url = container_info.get('login_url')
-    if not login_url:
-        host = SERVERS.get(container_info['server_id'], {}).get('ip', 'N/A')
-        login_url = f"http://{host}:{container_info['external_port']}"
-    
-    login_buttons.append(types.InlineKeyboardButton(text=lex.get('login_button', '🚪 Войти'), url=login_url))
+    terminal_token = await db.create_log_token(container_id)
+    if terminal_token:
+        terminal_url = (
+            f"{WEB_APP_URL.rstrip('/')}/terminal.html"
+            f"?token={terminal_token}&container_id={container_id}"
+        )
+        login_buttons.append(types.InlineKeyboardButton(
+            text=lex.get('login_button', '🖥️ CatDock Terminal'),
+            url=terminal_url,
+        ))
 
     image_id = container_info.get('image_id')
     if image_id in ['heroku', 'legacy']:
         login_buttons.append(types.InlineKeyboardButton(text=lex.get('interactive_login_button', '💬 Интерактивный вход'), callback_data=f"interactive_login:{container_id}"))
 
-    builder.row(*login_buttons)
+    if login_buttons:
+        builder.row(*login_buttons)
 
     builder.row(
         types.InlineKeyboardButton(text=lex.get('change_name_button', "📝 Сменить имя"), callback_data=f"change_name_start:{container_id}"),
@@ -137,7 +150,7 @@ async def get_container_management_keyboard(
 
     builder.row(types.InlineKeyboardButton(text=lex.get('reinstall_button', 'reinstall_button'), callback_data=f"reinstall_bot_start:{container_id}"))
 
-    if not is_frozen and not is_blocked and container_info.get('tariff_id') != 'free':
+    if not is_admin_view and not is_frozen and not is_blocked and container_info.get('tariff_id') != 'free':
         builder.row(types.InlineKeyboardButton(text=lex.get('transfer_bot_button', "🎁 Передать контейнер"), callback_data=f"transfer_bot_start:{container_id}"))
 
     if is_admin_view:

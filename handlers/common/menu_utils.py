@@ -1,7 +1,6 @@
 from aiogram import types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.types import InlineKeyboardMarkup
 import logging
 import asyncio
 
@@ -11,7 +10,7 @@ from keyboards import get_container_management_keyboard, get_orphaned_container_
 from states.user_states import UserBotManageState
 import utils.docker as dm
 from lexicon import LEXICON
-from utils import bot_state
+from roles import UserRole
 
 def format_seconds_to_dhms(seconds):
     if not isinstance(seconds, (int, float)) or seconds <= 0: return "Время истекло"
@@ -43,31 +42,31 @@ async def set_loading_state(callback: types.CallbackQuery, menu_name: str):
 
 async def _update_management_menu_with_stats(
     bot: Bot, message: types.Message, container_id: int, is_admin_view: bool, 
-    admin_back_callback: str | None, from_page: int
+    admin_back_callback: str | None, from_page: int, actor_user_id: int
 ):
     user_id = message.chat.id
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(container_id, actor_user_id)
 
     if not container:
         return
 
     try:
         status = await asyncio.wait_for(dm.get_container_status(container['server_id'], container['container_name']), timeout=10.0)
-    except (asyncio.TimeoutError, Exception) as e:
+    except (asyncio.TimeoutError, Exception):
         status = 'error'
 
     is_frozen = bool(container.get('is_frozen', 0))
 
     try:
         stats = await asyncio.wait_for(dm.get_container_stats(container['server_id'], container['container_name']), timeout=10.0)
-    except (asyncio.TimeoutError, Exception) as e:
+    except (asyncio.TimeoutError, Exception):
         stats = None
 
     try:
         session_status_key = await asyncio.wait_for(dm.get_session_status(container['server_id'], container['container_name'], container['image_id']), timeout=10.0)
-    except (asyncio.TimeoutError, Exception) as e:
+    except (asyncio.TimeoutError, Exception):
         session_status_key = 'error'
 
     if is_frozen:
@@ -147,9 +146,6 @@ async def show_management_menu(
     admin_back_callback: str | None = None,
     from_page: int = 0
 ) -> bool:
-    await state.set_state(UserBotManageState.managing)
-    await state.update_data(container_id=container_id)
-
     if isinstance(event, types.CallbackQuery):
         message = event.message
         user_id = event.from_user.id
@@ -159,12 +155,20 @@ async def show_management_menu(
 
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(container_id, user_id)
 
     if not container:
         if isinstance(event, types.CallbackQuery):
-            await event.answer("❌ UserBot не найден.", show_alert=True)
+            await event.answer("❌ UserBot не найден или недоступен.", show_alert=True)
         return False
+
+    user_role = await db.get_user_role(user_id)
+    is_admin_view = bool(
+        user_id != container['user_id'] and user_role >= UserRole.ADMIN
+    )
+
+    await state.set_state(UserBotManageState.managing)
+    await state.update_data(container_id=container_id)
 
     server_info = SERVERS.get(container['server_id'])
     is_orphaned = server_info is None
@@ -215,7 +219,8 @@ async def show_management_menu(
             message = sent_msg
 
     asyncio.create_task(_update_management_menu_with_stats(
-        bot, message, container_id, is_admin_view, admin_back_callback, from_page
+        bot, message, container_id, is_admin_view, admin_back_callback, from_page,
+        user_id,
     ))
 
     return True

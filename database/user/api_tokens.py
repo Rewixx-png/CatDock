@@ -5,7 +5,7 @@ from datetime import datetime
 from ..core import get_db
 
 async def create_web_token(user_id: int) -> str:
-    token = f"rew_web_{secrets.token_urlsafe(32)}"
+    token = f"catdock_web_{secrets.token_urlsafe(32)}"
     try:
         pool = await get_db()
         async with pool.acquire() as conn:
@@ -77,7 +77,10 @@ async def create_log_token(container_id: int) -> str:
     try:
         pool = await get_db()
         async with pool.acquire() as conn:
-            await conn.execute("DELETE FROM log_access_tokens WHERE container_id = $1", container_id)
+            await conn.execute(
+                "DELETE FROM log_access_tokens WHERE created_ts < $1",
+                created_ts - 1800,
+            )
             await conn.execute(
                 "INSERT INTO log_access_tokens (token, container_id, created_ts) VALUES ($1, $2, $3)",
                 token, container_id, created_ts

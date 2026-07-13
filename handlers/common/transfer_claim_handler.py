@@ -14,27 +14,16 @@ async def claim_container_by_token(message: types.Message, token: str, bot: Bot)
     language_code = await db.get_user_language(new_owner.id) or 'ru'
     lex = LEXICON[language_code]
 
-    transfer_data = await db.get_transfer_data_by_token(token)
-
-    if not transfer_data:
+    container, result = await db.claim_container_transfer(token, new_owner.id)
+    if result == "self":
+        await message.answer(lex.get('transfer_self_claim', "Вы не можете передать контейнер самому себе. Для отмены передачи воспользуйтесь соответствующей кнопкой в меню управления контейнером."))
+        return
+    if not container:
         await message.answer(lex.get('transfer_token_not_found', "❌ Эта ссылка для передачи недействительна, просрочена или уже была использована."))
         return
 
-    container_id = transfer_data['container_id']
-    original_owner_id = transfer_data['creator_user_id']
-
-    if new_owner.id == original_owner_id:
-        await message.answer(lex.get('transfer_self_claim', "Вы не можете передать контейнер самому себе. Для отмены передачи воспользуйтесь соответствующей кнопкой в меню управления контейнером."))
-        return
-
-    container = await db.get_container_by_id(container_id)
-    if not container:
-        await message.answer(lex.get('transfer_token_not_found'))
-        await db.delete_transfer_token(token)
-        return
-
-    await db.change_container_owner(container_id, new_owner.id)
-    await db.delete_transfer_token(token)
+    container_id = container['id']
+    original_owner_id = container['original_owner_id']
 
     await message.answer(lex.get('transfer_claim_success_new_owner').format(container_name=container['container_name']))
 
@@ -58,11 +47,11 @@ async def claim_container_by_token(message: types.Message, token: str, bot: Bot)
             f"Получил контейнер:\n\n"
             f"<b>От пользователя:</b> {original_owner_user.full_name} (<code>{original_owner_id}</code>)\n\n"
             f"<b>Дата получения:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            f"<b>Образ контейнера:</b> {IMAGES[updated_container['image_id']]['name']}\n"
+            f"<b>Образ контейнера:</b> {IMAGES.get(updated_container['image_id'], {}).get('name', updated_container['image_id'])}\n"
             f"<b>ID контейнера:</b> <code>{updated_container['id']}</code>\n"
             f"<b>Время окончания аренды:</b> {end_time.strftime('%Y-%m-%d %H:%M:%S')} ({format_seconds_to_dhms(updated_container['remaining_seconds'])})\n"
-            f"<b>Сервер контейнера:</b> {SERVERS[updated_container['server_id']]['name']}\n"
-            f"<b>Тариф контейнера:</b> {TARIFFS[updated_container['tariff_id']]['name']}"
+            f"<b>Сервер контейнера:</b> {SERVERS.get(updated_container['server_id'], {}).get('name', updated_container['server_id'])}\n"
+            f"<b>Тариф контейнера:</b> {TARIFFS.get(updated_container['tariff_id'], {}).get('name', updated_container['tariff_id'])}"
         )
         logging.info("Topic log removed")
 

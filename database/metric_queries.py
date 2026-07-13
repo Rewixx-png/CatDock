@@ -55,7 +55,7 @@ async def cleanup_old_metrics(days: int = 30):
         pool = await get_db()
         async with pool.acquire() as conn:
             await conn.execute(
-                "DELETE FROM server_metrics WHERE created_at < NOW() - INTERVAL '$1 days'",
+                "DELETE FROM server_metrics WHERE created_at < NOW() - ($1 * INTERVAL '1 day')",
                 days
             )
     except Exception as e:

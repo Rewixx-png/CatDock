@@ -2,6 +2,7 @@ import logging
 from typing import Set
 from .core import get_db
 from config import TARIFFS, DEFAULT_CPU_LIMIT
+from roles import UserRole
 
 async def add_user_container(user_id: int, server_id: str, container_name: str, image_id: str, tariff_id: str, external_port: int, login_url: str):
     if tariff_id == 'admin':
@@ -51,6 +52,38 @@ async def get_container_by_id(container_id: int) -> dict | None:
     except Exception as e:
         logging.error(f"Ошибка при получении контейнера по ID {container_id}: {e}")
         return None
+
+async def get_container_for_actor(
+    container_id: int,
+    actor_user_id: int,
+    *,
+    allow_admin: bool = True,
+) -> dict | None:
+    """Return a container only when the actor is allowed to manage it.
+
+    Callback data is controlled by Telegram clients and must never be treated as
+    an authorization boundary.  Keeping this check in the database facade makes
+    every userbot handler use the same owner/admin policy.
+    """
+    container = await get_container_by_id(container_id)
+    if not container:
+        return None
+
+    if int(container.get('user_id', 0)) == int(actor_user_id):
+        return container
+
+    if allow_admin:
+        from .user.profile import get_user_role
+
+        if await get_user_role(actor_user_id) >= UserRole.ADMIN:
+            return container
+
+    logging.warning(
+        "Отказ в доступе к контейнеру %s для пользователя %s",
+        container_id,
+        actor_user_id,
+    )
+    return None
 
 async def get_active_containers() -> list:
     try:
@@ -108,16 +141,84 @@ async def update_containers_time(container_ids: list, seconds_to_decrement: int)
     except Exception as e:
         logging.error(f"Ошибка при массовом обновлении времени контейнеров: {e}")
 
-async def add_container_time(container_id: int, seconds_to_add: int):
+async def add_container_time(container_id: int, seconds_to_add: int) -> bool:
     try:
         pool = await get_db()
         async with pool.acquire() as conn:
-            await conn.execute(
+            result = await conn.execute(
                 "UPDATE user_containers SET remaining_seconds = remaining_seconds + $1 WHERE id = $2",
                 seconds_to_add, container_id
             )
+            return result == "UPDATE 1"
     except Exception as e:
         logging.error(f"Ошибка при продлении подписки для контейнера {container_id}: {e}")
+        return False
+
+async def purchase_container_time(
+    user_id: int,
+    container_id: int,
+    seconds_to_add: int,
+    amount: float,
+) -> tuple[bool, str, float]:
+    """Atomically charge an owner and extend their container.
+
+    Returns ``(success, reason, cashback)``.  Ownership, balance deduction,
+    extension and cashback are committed in one transaction, so a partial
+    purchase cannot leave either money or subscription time out of sync.
+    """
+    if seconds_to_add <= 0 or amount <= 0:
+        return False, "invalid", 0.0
+
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                container = await conn.fetchrow(
+                    "SELECT user_id FROM user_containers WHERE id = $1 FOR UPDATE",
+                    container_id,
+                )
+                if not container:
+                    return False, "not_found", 0.0
+                if int(container['user_id']) != int(user_id):
+                    return False, "forbidden", 0.0
+
+                user = await conn.fetchrow(
+                    "SELECT balance, COALESCE(cashback_percent, 0) AS cashback_percent "
+                    "FROM users WHERE user_id = $1 FOR UPDATE",
+                    user_id,
+                )
+                if not user or float(user['balance'] or 0) < float(amount):
+                    return False, "insufficient_funds", 0.0
+
+                cashback = round(
+                    float(amount) * float(user['cashback_percent'] or 0) / 100.0,
+                    2,
+                )
+                await conn.execute(
+                    "UPDATE users SET balance = balance - $1 + $2 WHERE user_id = $3",
+                    amount,
+                    cashback,
+                    user_id,
+                )
+                await conn.execute(
+                    "UPDATE user_containers "
+                    "SET remaining_seconds = remaining_seconds + $1 WHERE id = $2",
+                    seconds_to_add,
+                    container_id,
+                )
+
+        from .user.profile import _clear_user_cache
+
+        _clear_user_cache(user_id)
+        return True, "ok", cashback
+    except Exception as e:
+        logging.error(
+            "Ошибка атомарного продления контейнера %s: %s",
+            container_id,
+            e,
+            exc_info=True,
+        )
+        return False, "database_error", 0.0
 
 async def update_container_last_notification(container_id: int, days: int):
     try:

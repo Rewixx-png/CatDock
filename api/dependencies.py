@@ -3,9 +3,9 @@ from fastapi.security import APIKeyHeader
 import database as db
 import logging
 
-api_key_header = APIKeyHeader(name="X-Web-Access-Token", auto_error=True)
+api_key_header = APIKeyHeader(name="X-Web-Access-Token", auto_error=False)
 
-async def get_current_user_id(token: str = Security(api_key_header)) -> int:
+async def get_current_user_id(token: str | None = Security(api_key_header)) -> int:
     if not token:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

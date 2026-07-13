@@ -4,15 +4,9 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from lexicon import LEXICON
 from roles import UserRole
 import database as db
-from config import WEB_APP_URL
+import settings
 
 async def get_admin_main_menu(user_id: int, language_code: str = 'ru') -> InlineKeyboardMarkup:
-    lex = LEXICON.get(language_code, LEXICON['ru'])
-    user_role = await db.get_user_role(user_id)
-
-    open_tickets = await db.get_all_tickets_by_status('open')
-    ticket_badge = f" ({len(open_tickets)})" if open_tickets else ""
-
     builder = InlineKeyboardBuilder()
 
     builder.row(
@@ -20,10 +14,7 @@ async def get_admin_main_menu(user_id: int, language_code: str = 'ru') -> Inline
         types.InlineKeyboardButton(text="⚙️ Система", callback_data="admin_menu_system")
     )
 
-    builder.row(
-        types.InlineKeyboardButton(text="📢 Маркетинг", callback_data="admin_menu_marketing"),
-        types.InlineKeyboardButton(text=f"📨 Тикеты{ticket_badge}", callback_data="admin_support_menu") 
-    )
+    builder.row(types.InlineKeyboardButton(text="📢 Рассылки", callback_data="admin_menu_marketing"))
 
     builder.row(
         types.InlineKeyboardButton(text="🔄 Обновить дашборд", callback_data="admin_panel"),
@@ -71,15 +62,20 @@ async def get_admin_system_menu(user_id: int, language_code: str = 'ru') -> Inli
             types.InlineKeyboardButton(text="🕹️ Серверы", callback_data="manage_servers"),
             types.InlineKeyboardButton(text="⌨️ Терминал", callback_data="terminal_menu")
         )
-        builder.row(
-            types.InlineKeyboardButton(text="🔄 Обновить образы", callback_data="admin_update_images"),
-            types.InlineKeyboardButton(text="💾 Бэкап БД", callback_data="/backup") 
-        )
+        system_buttons = []
+        if settings.DOCKER_ASSETS_BASE_URL:
+            system_buttons.append(types.InlineKeyboardButton(
+                text="🔄 Обновить образы", callback_data="admin_update_images"
+            ))
+        system_buttons.append(types.InlineKeyboardButton(
+            text="💾 Бэкап БД", callback_data="admin_force_backup"
+        ))
+        builder.row(*system_buttons)
 
     if user_role >= UserRole.SENIOR_ADMIN:
         builder.row(
-            types.InlineKeyboardButton(text="🧹 Очистка сессий", callback_data="/session"), 
-            types.InlineKeyboardButton(text="💀 Зомби клинер", callback_data="/zombie")    
+            types.InlineKeyboardButton(text="🧹 Очистка сессий", callback_data="admin_scan_sessions"),
+            types.InlineKeyboardButton(text="💀 Зомби клинер", callback_data="admin_force_zombie")
         )
 
     builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
@@ -89,7 +85,6 @@ async def get_admin_marketing_menu(user_id: int, language_code: str = 'ru') -> I
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
 
-    builder.row(types.InlineKeyboardButton(text=lex.get('news_button_title', "📢 Новость"), callback_data="admin_send_news"))
     builder.row(types.InlineKeyboardButton(text=lex.get('mailing_button', "📬 Рассылка"), callback_data="start_broadcast"))
 
     builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))

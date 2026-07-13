@@ -20,7 +20,9 @@ async def start_transfer(callback: types.CallbackQuery, state: FSMContext):
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[language_code]
 
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(
+        container_id, callback.from_user.id, allow_admin=False
+    )
     if not container or container.get('tariff_id') == 'free':
         try:
             await callback.answer(lex.get('transfer_free_error', "❌ Эту услугу нельзя передать."), show_alert=True)
@@ -32,8 +34,8 @@ async def start_transfer(callback: types.CallbackQuery, state: FSMContext):
     await state.update_data(container_id=container_id)
 
     try:
-        await callback.message.edit_caption(
-            caption=lex.get('transfer_confirm_text'),
+        await callback.message.edit_text(
+            text=lex.get('transfer_confirm_text'),
             reply_markup=get_transfer_confirmation_keyboard(language_code, container_id)
         )
     except TelegramBadRequest as e:
@@ -54,6 +56,14 @@ async def confirm_transfer(callback: types.CallbackQuery, state: FSMContext, bot
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
 
+    data = await state.get_data()
+    if data.get('container_id') != container_id or not await db.get_container_for_actor(
+        container_id, user_id, allow_admin=False
+    ):
+        await callback.answer("❌ Контейнер недоступен.", show_alert=True)
+        await state.clear()
+        return
+
     token = await db.create_transfer_token(container_id, user_id)
 
     if not token:
@@ -64,7 +74,8 @@ async def confirm_transfer(callback: types.CallbackQuery, state: FSMContext, bot
         return
 
     bot_info = bot_state.bot_info_cache
-    transfer_link = f"https://t.me/{bot_info.username}?start={token}"
+    bot_username = bot_info.username if bot_info else (await bot.get_me()).username
+    transfer_link = f"https://t.me/{bot_username}?start={token}"
 
     asyncio.create_task(
         log_action(bot, callback.from_user, f"создал ссылку для передачи контейнера #{container_id}")
@@ -86,6 +97,13 @@ async def cancel_transfer(callback: types.CallbackQuery, state: FSMContext, bot:
     container_id = int(callback.data.split(":")[1])
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[language_code]
+
+    container = await db.get_container_for_actor(
+        container_id, callback.from_user.id, allow_admin=False
+    )
+    if not container:
+        await callback.answer("❌ Контейнер недоступен.", show_alert=True)
+        return
 
     await db.delete_token_for_container(container_id)
 

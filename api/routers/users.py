@@ -16,7 +16,6 @@ from api.utils import _get_avatar_url
 import utils.docker as dm
 from utils.action_logger import log_action
 from aiogram import types
-from utils.leveling import process_chat_xp, process_spending_xp
 
 logger = logging.getLogger(__name__)
 

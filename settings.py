@@ -19,8 +19,8 @@ SYSTEM_CONTAINERS_LIST = [
 
 
 
-DOCKER_ASSETS_BASE_URL = "https://raw.githubusercontent.com/Rewixx-png/cat-host-assets/main/docker"
-LOCALES_REPO_URL = "https://raw.githubusercontent.com/Rewixx-png/cat-host-assets/main/locales"
+DOCKER_ASSETS_BASE_URL = os.getenv("DOCKER_ASSETS_BASE_URL", "")
+LOCALES_REPO_URL = os.getenv("LOCALES_REPO_URL", "")
 
 SUPPORTED_LANGUAGES = ["ru", "en", "uk"]
 
@@ -43,3 +43,17 @@ SCHED_SYNC_SESSIONS_INTERVAL = 10
 ALLOCATOR_MIN_RAM_MB = 1024          
 ALLOCATOR_RAM_BUFFER_MB = 200        
 SLOT_NOTIFICATION_COOLDOWN = 3600    
+
+# Compatibility defaults for RewHost features removed from CatDock.  Keeping
+# them at zero disables leveling discounts/XP without breaking shared pricing
+# and notification helpers which still read these settings.
+LEVEL_MIN_MSG_LEN = 1
+LEVEL_CHAT_COOLDOWN = 0
+LEVEL_XP_PER_MESSAGE = 0
+LEVEL_XP_PER_RUBLE = 0
+LEVEL_DISCOUNT_PER_LEVEL = 0
+LEVEL_MAX_DISCOUNT = 100
+EXCLUDED_FROM_TOP = []
+
+NEWS_CHAT_USERNAME = os.getenv("NEWS_CHAT_USERNAME")
+PROMO_TOPIC_ID = None

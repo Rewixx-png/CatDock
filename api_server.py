@@ -9,9 +9,22 @@ sys.path.insert(0, '.')
 
 from loader import bot
 from broker import broker
-from config import TOKEN, SENTRY_DSN
+from config import SENTRY_DSN
 from utils.logger import setup_logger
 import database as db
+
+
+def create_app():
+    """Build the standalone terminal application without starting services."""
+    from api import setup_api_server
+
+    app = setup_api_server(bot)
+
+    @app.get("/health", tags=["Health"])
+    async def service_health():
+        return {"status": "ok", "service": "catdock-terminal"}
+
+    return app
 
 
 async def main():
@@ -24,15 +37,21 @@ async def main():
     await db.init_db()
     await broker.startup()
 
-    from api import setup_api_server
-    api_app = setup_api_server(bot)
+    api_app = create_app()
 
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8082
     config = uvicorn.Config(app=api_app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     logging.info(f"CatDock API on port {port}")
-    await server.serve()
+    try:
+        await server.serve()
+    finally:
+        await broker.shutdown()
+        await bot.session.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass

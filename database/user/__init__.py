@@ -4,7 +4,7 @@ from .state import *
 from .bonuses import *
 from .verification import *
 from .admin_actions import *
-from .cosmetics import *
 from .sessions import *
 from .login_codes import *
 from .stats import *
+from .settings import *

@@ -1,5 +1,3 @@
-import logging
-import asyncio
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 
@@ -10,7 +8,6 @@ from states.user_states import ExtendSubscriptionState
 from lexicon import LEXICON
 from ..common.menu_utils import show_management_menu
 from utils.action_logger import log_action 
-from utils.leveling import process_spending_xp 
 
 router = Router()
 
@@ -20,7 +17,9 @@ async def start_extend(callback: types.CallbackQuery, state: FSMContext):
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[language_code]
 
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(
+        container_id, callback.from_user.id, allow_admin=False
+    )
     if not container:
         await callback.answer("❌ Контейнер не найден.", show_alert=True)
         return
@@ -61,8 +60,8 @@ async def start_extend(callback: types.CallbackQuery, state: FSMContext):
             ram_cost=ram_monthly_cost
         )
 
-    await callback.message.edit_caption(
-        caption=caption,
+    await callback.message.edit_text(
+        text=caption,
         reply_markup=get_extend_options_keyboard(container_id, tariff_price, cpu_monthly_cost, ram_monthly_cost, language_code)
     )
     await callback.answer()
@@ -80,12 +79,19 @@ async def confirm_extension(callback: types.CallbackQuery, state: FSMContext, bo
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
 
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(
+        container_id, user_id, allow_admin=False
+    )
     if not container:
         await callback.answer("❌ Контейнер не найден.", show_alert=True)
         return
 
-    tariff_price = TARIFFS[container['tariff_id']]['price_rub']
+    tariff = TARIFFS.get(container.get('tariff_id'))
+    if not tariff or container.get('tariff_id') == 'free':
+        await callback.answer(lex.get('extend_free_not_allowed'), show_alert=True)
+        return
+
+    tariff_price = tariff['price_rub']
     plan = next((p for p in SUBSCRIPTION_PLANS if p['months'] == months), None)
 
     if not plan:
@@ -108,22 +114,32 @@ async def confirm_extension(callback: types.CallbackQuery, state: FSMContext, bo
     base_price = (tariff_price + cpu_monthly_cost + ram_monthly_cost) * months
     final_price = base_price * (1 - plan['discount_percent'] / 100)
 
-    if not await db.try_deduct_user_balance(user_id, final_price):
+    seconds_to_add = plan['months'] * 30 * 24 * 60 * 60
+    success, reason, cashback = await db.purchase_container_time(
+        user_id,
+        container_id,
+        seconds_to_add,
+        final_price,
+    )
+    if not success:
+        if reason == 'insufficient_funds':
+            error_text = lex.get('extend_insufficient_funds').format(
+                cost=final_price,
+                balance=await db.get_user_balance(user_id),
+            )
+        elif reason in {'forbidden', 'not_found'}:
+            error_text = "❌ Контейнер не найден или недоступен."
+        else:
+            error_text = "❌ Не удалось продлить подписку. Попробуйте позже."
         await callback.answer(
-            lex.get('extend_insufficient_funds').format(cost=final_price, balance=await db.get_user_balance(user_id)),
+            error_text,
             show_alert=True
         )
         return
 
-    asyncio.create_task(process_spending_xp(bot, user_id, final_price))
-
-    cashback = await db.add_cashback_to_balance(user_id, final_price)
     success_msg = lex.get('extend_success', "✅ Подписка успешно продлена!")
     if cashback > 0:
         success_msg += f"\n🎁 Кешбэк: +{cashback:.2f} RUB"
-
-    seconds_to_add = plan['months'] * 30 * 24 * 60 * 60
-    await db.add_container_time(container_id, seconds_to_add)
 
     log_text = (
         f"продлил контейнер '{container['container_name']}' на {months} мес. "

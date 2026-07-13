@@ -18,6 +18,7 @@ from roles import UserRole
 from utils.action_logger import log_action
 from utils.ssh_runner import run_command_on_server
 from utils import bot_state
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.callback_query.filter(IsAdmin(min_level=UserRole.SENIOR_ADMIN))
@@ -114,7 +115,8 @@ async def admin_change_server_start(callback: types.CallbackQuery, state: FSMCon
     await state.set_state(AdminChangeServerState.choosing_server)
     await state.update_data(container_id=container_id)
 
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=lex.get('admin_change_server_prompt', "Выберите новый сервер для переноса контейнера."), 
         reply_markup=get_change_server_keyboard(
             language_code, 
@@ -140,7 +142,8 @@ async def admin_select_new_server(callback: types.CallbackQuery, state: FSMConte
     await state.update_data(new_server_id=new_server_id)
     await state.set_state(AdminChangeServerState.confirming_change)
 
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=caption,
         reply_markup=get_simple_confirmation_keyboard(language_code, "admin_confirm_server_change", "cancel_admin_action")
     )
@@ -148,7 +151,10 @@ async def admin_select_new_server(callback: types.CallbackQuery, state: FSMConte
 
 @router.callback_query(AdminChangeServerState.confirming_change, F.data == "admin_confirm_server_change")
 async def admin_confirm_server_change(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
-    await callback.message.edit_caption(caption="✅ Задача на перенос контейнера запущена в фоновом режиме. Вы получите уведомление о прогрессе.")
+    await safe_edit_caption(
+        callback.message,
+        caption="✅ Задача на перенос контейнера запущена в фоновом режиме. Вы получите уведомление о прогрессе.",
+    )
     await callback.answer("✅ Задача запущена!")
 
     data = await state.get_data()

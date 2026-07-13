@@ -17,8 +17,10 @@ router = Router()
 async def change_name_start_handler(callback: types.CallbackQuery, state: FSMContext):
     container_id = int(callback.data.split(":")[1])
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
-    container = await db.get_container_by_id(container_id)
-    if not container: return
+    container = await db.get_container_for_actor(container_id, callback.from_user.id)
+    if not container:
+        await callback.answer("❌ Контейнер не найден или недоступен.", show_alert=True)
+        return
 
     await state.set_state(ChangeNameState.waiting_for_name)
     await state.update_data(container_id=container_id)
@@ -41,6 +43,10 @@ async def process_name_change(message: types.Message, state: FSMContext, bot: Bo
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
 
+    if not message.text:
+        await message.answer(lex.get('change_name_error_chars'))
+        return
+
     new_name = message.text.strip()
 
     if not (4 <= len(new_name) <= 29):
@@ -62,7 +68,7 @@ async def process_name_change(message: types.Message, state: FSMContext, bot: Bo
     except:
         pass
 
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(container_id, user_id)
     if not container:
         await message.answer("Контейнер не найден.")
         await state.clear()
@@ -96,7 +102,5 @@ async def process_name_change(message: types.Message, state: FSMContext, bot: Bo
     except:
         pass
 
-    fake_callback = message
-    from ..common.menu_utils import show_management_menu
     menu_msg = await message.answer("Загрузка меню...")
     await show_management_menu(menu_msg, container_id, state, bot)

@@ -20,7 +20,6 @@ from .actions import (
     get_change_server_keyboard,
     get_extend_options_keyboard,
     get_cpu_upgrade_keyboard,
-    get_ram_upgrade_keyboard,
     get_transfer_confirmation_keyboard,
     get_delete_confirm_step1_keyboard,
     get_delete_confirm_step2_keyboard

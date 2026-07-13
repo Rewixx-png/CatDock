@@ -69,9 +69,23 @@ async def task_container_power_action(chat_id: int, user_id: int, first_name: st
         await safe_send_message(chat_id, f"❌ <b>Ошибка действия {action}:</b>\n<code>{str(e)}</code>")
 
 @broker.task
-async def task_create_container(user_id: int, username: str, first_name: str, server_id: str, tariff_id: str, image_id: str, cost: float, days: int, promo_used: str | None = None, promo_code: str | None = None):
+async def task_create_container(
+    user_id: int,
+    username: str,
+    first_name: str,
+    server_id: str,
+    tariff_id: str,
+    image_id: str,
+    cost: float,
+    days: int,
+    promo_used: str | None = None,
+    promo_code: str | None = None,
+    discount_percent: int = 0,
+    discount_code: str | None = None,
+):
     import database as db
     logging.info(f"👷 TASK CREATE: User {user_id}, Server {server_id}, Tariff {tariff_id}")
+    container_saved = False
     try:
         tariff = TARIFFS[tariff_id]
         image = IMAGES[image_id]
@@ -79,18 +93,37 @@ async def task_create_container(user_id: int, username: str, first_name: str, se
         if not all([container_name, app_port, login_url]): raise Exception("Docker Manager returned empty data")
         tariff_id_db = 'free' if promo_used == 'free_container' else tariff_id
         await db.add_user_container(user_id, server_id, container_name, image_id, tariff_id_db, app_port, login_url)
+        container_saved = True
         if days != 30:
             container = await db.get_container_by_name(container_name)
             await db.admin_set_container_time(container['id'], days)
+
+        cashback = await db.add_cashback_to_balance(user_id, cost)
+        if cashback > 0:
+            await safe_send_message(user_id, f"🎁 Кешбэк: <b>+{cashback:.2f} RUB</b>")
+
         user_obj = User(id=user_id, is_bot=False, first_name=first_name, username=username)
-        await log_action(bot, user_obj, f"создал контейнер '{container_name}' (Queue). Списано: {cost:.2f} RUB")
-        await safe_send_message(user_id, f"✅ <b>Готово! Ваш UserBot создан.</b>\n\n📦 <b>Имя:</b> <code>{container_name}</code>\n🌍 <b>Сервер:</b> {SERVERS[server_id]['name']}\n\n⏳ <b>Инициализация Web-панели...</b>\nБот уведомит вас, когда панель загрузится (10-30 сек).\nНайти бота можно в меню <b>'Мои UserBot'</b>.")
+        try:
+            await log_action(bot, user_obj, f"создал контейнер '{container_name}' (Queue). Списано: {cost:.2f} RUB")
+        except Exception as log_error:
+            logging.warning("Container created, but action log failed: %s", log_error)
+        await safe_send_message(user_id, f"✅ <b>Готово! Ваш UserBot создан.</b>\n\n📦 <b>Имя:</b> <code>{container_name}</code>\n🌍 <b>Сервер:</b> {SERVERS[server_id]['name']}\n\n🖥 <b>CatDock Terminal готов.</b>\nОткрыть его можно в меню <b>«Мои UserBot»</b>.")
     except Exception as e:
         error_msg = str(e)
         logging.error(f"👷 CREATE FAILED: {error_msg}", exc_info=True)
-        if cost > 0: await db.update_user_balance(user_id, cost)
-        if promo_used == 'free_container' and promo_code: await db.set_user_free_container_promo(user_id, True, promo_code)
-        await safe_send_message(user_id, f"❌ <b>Ошибка при создании контейнера</b>\n\n<code>{error_msg}</code>\n\n💰 Средства ({cost:.2f} RUB) возвращены на баланс.\nПопробуйте позже или обратитесь в поддержку.")
+        if not container_saved:
+            if cost > 0:
+                await db.update_user_balance(user_id, cost)
+            if promo_used == 'free_container':
+                await db.set_user_free_container_promo(user_id, True, promo_code)
+            elif promo_used == 'tariff_discount':
+                await db.set_user_tariff_discount(user_id, discount_percent, discount_code)
+            await safe_send_message(user_id, f"❌ <b>Ошибка при создании контейнера</b>\n\n<code>{error_msg}</code>\n\n💰 Средства ({cost:.2f} RUB) возвращены на баланс.\nПопробуйте позже или обратитесь в поддержку.")
+        else:
+            await safe_send_message(
+                user_id,
+                "⚠️ Контейнер создан, но финальная настройка завершилась с ошибкой. Средства не списывались повторно; обратитесь в поддержку.",
+            )
 
 @broker.task
 async def task_reinstall_container(chat_id: int, user_id: int, first_name: str, container_db_id: int, server_id: str, old_container_name: str, tariff_data: dict, image_data: dict, username_for_create: str):
@@ -110,11 +143,11 @@ async def task_reinstall_container(chat_id: int, user_id: int, first_name: str, 
         await db.set_container_frozen_state(container_db_id, False)
         try: await db.set_container_login_pending(container_db_id, False)
         except: pass
-        await db.set_container_web_loading(container_db_id, True)
+        await db.set_container_web_loading(container_db_id, False)
 
         user_obj = User(id=user_id, is_bot=False, first_name=first_name)
         await log_action(bot, user_obj, f"переустановил контейнер (Queue). Новое имя: {new_name}")
-        await safe_send_message(chat_id, f"✅ <b>Переустановка завершена!</b>\n\nНовое имя: <code>{new_name}</code>\nВеб-панель загружается...")
+        await safe_send_message(chat_id, f"✅ <b>Переустановка завершена!</b>\n\nНовое имя: <code>{new_name}</code>\nCatDock Terminal доступен в меню управления.")
     except Exception as e:
         logging.error(f"Reinstall Task Error: {e}", exc_info=True)
         await safe_send_message(chat_id, f"❌ Ошибка переустановки: {e}")

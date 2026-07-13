@@ -54,6 +54,8 @@ ADMIN_LEVELS = {
     UserRole.JUNIOR_ADMIN: _get_ids_from_env("JUNIOR_ADMIN_IDS"),
 }
 ALL_ADMIN_IDS = {admin_id for ids in ADMIN_LEVELS.values() for admin_id in ids}
+# Backward-compatible name used by the legacy filter module.
+ADMIN_IDS = ALL_ADMIN_IDS
 
 BOT_USERNAME = os.getenv("BOT_USERNAME", "CatDockBot")
 WEB_APP_URL = os.getenv("WEB_APP_URL", "http://localhost:8082")
@@ -74,11 +76,23 @@ CPU_UPGRADE_PRICE = _get_float_from_env("CPU_UPGRADE_PRICE", 10.0)
 RAM_UPGRADE_PRICE = _get_float_from_env("RAM_UPGRADE_PRICE", 15.0)
 
 SUPPORT_URL = os.getenv("SUPPORT_URL", "https://t.me/CatDockSupport")
+SUPPORT_CHAT_URL = os.getenv("SUPPORT_CHAT_URL", SUPPORT_URL)
 
 try:
     card_details_json = os.getenv("CARD_PAYMENT_DETAILS", '{}')
-    CARD_PAYMENT_DETAILS = json.loads(card_details_json)
-except json.JSONDecodeError:
+    raw_card_details = json.loads(card_details_json)
+    if not isinstance(raw_card_details, dict):
+        raise ValueError("CARD_PAYMENT_DETAILS must be a JSON object")
+    CARD_PAYMENT_DETAILS = {
+        str(country): [
+            {'bank': str(card['bank']), 'number': str(card['number'])}
+            for card in cards
+            if isinstance(card, dict) and card.get('bank') and card.get('number')
+        ]
+        for country, cards in raw_card_details.items()
+        if isinstance(cards, list)
+    }
+except (json.JSONDecodeError, ValueError):
     logging.error("КРИТИЧЕСКАЯ ОШИБКА: Не удалось прочитать CARD_PAYMENT_DETAILS из .env. Проверьте JSON-формат.")
     CARD_PAYMENT_DETAILS = {}
 
@@ -99,15 +113,16 @@ def get_bot_username():
 
 
 SUBSCRIPTION_PLANS = [
-    (1, 0),
-    (3, 10),
-    (6, 15),
+    {'months': 1, 'discount_percent': 0},
+    {'months': 3, 'discount_percent': 10},
+    {'months': 6, 'discount_percent': 15},
 ]
 
 REFERRAL_PERCENTAGE = 0.20
+ADVANCED_REFERRAL_PERCENTAGE = 0.40
 MIN_WITHDRAWAL_AMOUNT = 10.0
 STAR_TO_RUB_RATE = 2.0
-CRYPTO_ACCEPTED_ASSETS = "USDT,TON"
+REFERRAL_PERCENTAGE = 0.10
 DEFAULT_BOT_PROPERTIES = DefaultBotProperties(parse_mode=ParseMode.HTML)
 
 from utils import bot_state
@@ -129,20 +144,12 @@ class DynamicServers(dict):
         return len(bot_state.servers_cache)
     def __iter__(self):
         return iter(bot_state.servers_cache)
-
-SERVERS = DynamicServers()
-
 TARIFFS = {
-    'free': {'name': 'Free', 'ram_mb': 300, 'disk_gb': 1, 'price_rub': 0},
-    'basic': {'name': 'Basic (Lite)', 'ram_mb': 300, 'disk_gb': 5, 'price_rub': 35},
-    'medium': {'name': 'Medium (Standard)', 'ram_mb': 600, 'disk_gb': 10, 'price_rub': 65},
-    'large': {'name': 'Large (Pro)', 'ram_mb': 1200, 'disk_gb': 20, 'price_rub': 125}
+    'lite': {'name': '💡 Lite', 'ram_mb': 512, 'disk_gb': 5, 'price_rub': 59},
+    'pro':  {'name': '🚀 Pro',  'ram_mb': 1024, 'disk_gb': 10, 'price_rub': 129},
 }
 
 IMAGES = {
-    'catdock': {'name': '🐱 CatDock', 'image_name': 'catdock'},
+    'hikka':  {'name': '🌕 Hikka', 'image_name': 'hikka'},
     'heroku': {'name': '🪐 Heroku', 'image_name': 'heroku'},
-    'hikka': {'name': '🌕 Hikka', 'image_name': 'hikka'},
-    'foxuserbot': {'name': '🦊 FoxUserbot', 'image_name': 'foxuserbot'},
-    'legacy': {'name': '🌙 Legacy', 'image_name': 'legacy'}
 }

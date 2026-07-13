@@ -34,14 +34,14 @@ async def show_final_confirmation(callback: types.CallbackQuery, state: FSMConte
     except Exception:
         pass
 
-    await state.set_state(UserBotCreateState.confirming_creation)
     user_id = callback.from_user.id
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
     data = await state.get_data()
 
     tariff_id = data.get('tariff_id')
-    if not tariff_id:
+    image_id = data.get('image_id')
+    if tariff_id not in TARIFFS or image_id not in IMAGES:
         await callback.answer("Ошибка данных. Начните заново.", show_alert=True)
         return
 
@@ -58,11 +58,19 @@ async def show_final_confirmation(callback: types.CallbackQuery, state: FSMConte
         return
 
     await state.update_data(server_id=server_id)
-    server = SERVERS[server_id]
+    server = SERVERS.get(server_id)
+    if not server:
+        await callback.answer("❌ Сервер больше недоступен.", show_alert=True)
+        return
 
-    tariff = TARIFFS[data['tariff_id']]
-    image = IMAGES[data['image_id']]
+    tariff = TARIFFS[tariff_id]
+    image = IMAGES[image_id]
     user_profile = await db.get_user_profile(user_id)
+    if not user_profile:
+        await callback.answer("❌ Профиль не найден. Выполните /start.", show_alert=True)
+        return
+
+    await state.set_state(UserBotCreateState.confirming_creation)
 
     final_price = await calculate_final_price(tariff_id, server_id, user_profile)
 
@@ -101,8 +109,8 @@ async def show_final_confirmation(callback: types.CallbackQuery, state: FSMConte
     )
 
     try:
-        await callback.message.edit_caption(
-            caption=confirmation_text, 
+        await callback.message.edit_text(
+            text=confirmation_text,
             reply_markup=get_confirmation_keyboard(language_code)
         )
     except TelegramBadRequest as e:

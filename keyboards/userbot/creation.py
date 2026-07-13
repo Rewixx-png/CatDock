@@ -53,7 +53,7 @@ async def get_tariff_selection_for_hub(language_code: str, user_id: int) -> Inli
         ram = tariff_info['ram_mb']
         
         if tariff_id == 'free' and user_has_used_free:
-            builder.add(types.InlineKeyboardButton(text=f"🔒 {name} (Used)", callback_data="free_tariff_used"))
+            builder.add(types.InlineKeyboardButton(text=f"🔒 {name} (Used)", callback_data="none"))
         else:
             
             builder.add(types.InlineKeyboardButton(text=f"⚡ {name} | {ram}MB | {price_text}", callback_data=f"create_set:tariff:{tariff_id}"))

@@ -18,6 +18,7 @@ from roles import UserRole
 from utils.filters import IsAdmin
 import utils.docker as dm
 from utils.action_logger import log_action
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.message.filter(IsAdmin(min_level=UserRole.SENIOR_ADMIN))
@@ -28,7 +29,8 @@ async def start_give_admin_container(callback: types.CallbackQuery, state: FSMCo
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[language_code]
     await state.set_state(AdminGiveAdminContainerState.waiting_for_user_id)
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=lex.get('give_admin_container_prompt_user'),
         reply_markup=get_cancel_admin_action_keyboard("admin_containers_menu", language_code)
     )

@@ -113,6 +113,17 @@
         .btn.danger:hover { background: #f5a0b0; }
         .btn.warn { background: var(--warning); color: var(--bg); }
         .btn.success { background: var(--success); color: var(--bg); }
+        .btn:disabled { cursor: not-allowed; opacity: 0.45; }
+
+        .image-select {
+            min-width: 145px;
+            background: var(--border);
+            color: var(--text);
+            border: 1px solid #313244;
+            border-radius: 6px;
+            padding: 5px 8px;
+            font: 11px inherit;
+        }
 
         #terminal-container {
             flex: 1;
@@ -161,31 +172,25 @@
 
     <div class="controls" id="controls">
         <div class="group">
-            <button class="btn accent" onclick="sendCmd('')" title="Send Enter">Enter</button>
+            <button class="btn accent" onclick="sendCmd('\r')" title="Send Enter">Enter</button>
             <button class="btn" onclick="sendCmd('\x03')" title="Ctrl+C">Ctrl+C</button>
             <button class="btn" onclick="sendCmd('\x04')" title="Ctrl+D">Ctrl+D</button>
             <button class="btn" onclick="sendCmd('\x1a')" title="Ctrl+Z">Ctrl+Z</button>
         </div>
-        <div class="group">
-            <button class="btn" onclick="sendText('ls -la')">ls</button>
-            <button class="btn" onclick="sendText('pwd')">pwd</button>
-            <button class="btn" onclick="sendText('cd ..')">cd ..</button>
-            <button class="btn" onclick="sendText('cat docker-compose.yml')">cat compose</button>
+        <div class="group container-control">
+            <button class="btn danger" onclick="restartBot()">.restart</button>
+            <button class="btn warn" onclick="showLogs()">.logs</button>
+            <button class="btn success" onclick="showStatus()">.status</button>
+        </div>
+        <div class="group container-control">
+            <input type="file" id="session-file" accept=".session,.string" hidden onchange="uploadSession(this)" />
+            <button class="btn" onclick="document.getElementById('session-file').click()">⬆ Session</button>
+            <select id="image-select" class="image-select" aria-label="UserBot image">
+                <option value="">Образ…</option>
+            </select>
+            <button class="btn" onclick="changeImage()">Применить</button>
         </div>
         <div class="group">
-            <button class="btn" onclick="sendText('docker ps')">docker ps</button>
-            <button class="btn" onclick="sendText('docker logs --tail 50 $(docker ps -q)')">docker logs</button>
-            <button class="btn" onclick="sendText('htop')">htop</button>
-            <button class="btn" onclick="sendText('df -h')">df -h</button>
-        </div>
-        <div class="group">
-            <button class="btn" onclick="sendText('git pull')">git pull</button>
-            <button class="btn" onclick="sendText('pip install -r requirements.txt')">pip install</button>
-            <button class="btn" onclick="sendText('systemctl status')">systemctl</button>
-        </div>
-        <div class="group">
-            <button class="btn danger" onclick="sendText('. restart')">.restart</button>
-            <button class="btn warn" onclick="sendText('pm2 status')">pm2 status</button>
             <button class="btn success" onclick="reconnect()">Reconnect</button>
         </div>
     </div>
@@ -351,6 +356,164 @@
         }
 
         document.addEventListener('DOMContentLoaded', connect);
+    </script>
+    <script>
+        const terminalApi = '/api/v1/terminal';
+
+        function apiUrl(path) {
+            const separator = path.includes('?') ? '&' : '?';
+            return terminalApi + path + separator + 'token=' + encodeURIComponent(token || '');
+        }
+
+        async function apiRequest(path, options = {}) {
+            if (!token) throw new Error('Token required');
+            const response = await fetch(apiUrl(path), options);
+            let payload = {};
+            try {
+                payload = await response.json();
+            } catch (error) {
+                payload = { message: 'Invalid server response' };
+            }
+            if (!response.ok) {
+                throw new Error(payload.message || payload.detail || ('HTTP ' + response.status));
+            }
+            return payload;
+        }
+
+        function writePanel(title, text, color = '36') {
+            if (!term) return;
+            const normalized = String(text || '').replace(/\r?\n/g, '\r\n');
+            term.writeln('\r\n\x1b[1;' + color + 'm--- ' + title + ' ---\x1b[0m');
+            term.writeln(normalized);
+        }
+
+        async function restartBot() {
+            if (!containerId || !confirm('Перезапустить UserBot?')) return;
+            try {
+                const payload = await apiRequest('/container/' + encodeURIComponent(containerId) + '/restart', {
+                    method: 'POST'
+                });
+                writePanel('.restart', payload.message || 'Container restarted', '32');
+                showToast('UserBot restarted');
+                setTimeout(reconnect, 900);
+            } catch (error) {
+                writePanel('.restart error', error.message, '31');
+                showToast(error.message, true);
+            }
+        }
+
+        async function showLogs() {
+            if (!containerId) return;
+            try {
+                const payload = await apiRequest('/container/' + encodeURIComponent(containerId) + '/logs?lines=300');
+                writePanel('.logs', payload.data || 'Логи пусты');
+                showToast('Logs loaded');
+            } catch (error) {
+                writePanel('.logs error', error.message, '31');
+                showToast(error.message, true);
+            }
+        }
+
+        async function showStatus() {
+            if (!containerId) return;
+            try {
+                const payload = await apiRequest('/container/' + encodeURIComponent(containerId) + '/health');
+                const data = payload.data || {};
+                const stats = data.stats || {};
+                const rows = [
+                    'Container: ' + (data.container_name || containerId),
+                    'Status: ' + (data.container_status || 'unknown'),
+                    'Session: ' + (data.session_status || 'unknown'),
+                    'Image: ' + (data.image_id || 'unknown'),
+                    'CPU: ' + (stats.cpu_raw || stats.cpu_usage || 'N/A'),
+                    'RAM: ' + (stats.ram_raw || stats.ram_usage || 'N/A')
+                ];
+                writePanel('.status', rows.join('\n'), data.container_status === 'running' ? '32' : '33');
+                showToast('Status updated');
+            } catch (error) {
+                writePanel('.status error', error.message, '31');
+                showToast(error.message, true);
+            }
+        }
+
+        async function uploadSession(input) {
+            const file = input.files && input.files[0];
+            if (!file || !containerId) return;
+            if (!confirm('Загрузить ' + file.name + ' и перезапустить UserBot при необходимости?')) {
+                input.value = '';
+                return;
+            }
+            const form = new FormData();
+            form.append('session_file', file);
+            try {
+                const payload = await apiRequest('/container/' + encodeURIComponent(containerId) + '/session', {
+                    method: 'POST',
+                    body: form
+                });
+                writePanel('Session upload', payload.message, '32');
+                showToast('Session uploaded');
+            } catch (error) {
+                writePanel('Session upload error', error.message, '31');
+                showToast(error.message, true);
+            } finally {
+                input.value = '';
+            }
+        }
+
+        async function loadImages() {
+            if (!token || !containerId) return;
+            const select = document.getElementById('image-select');
+            try {
+                const payload = await apiRequest('/images');
+                (payload.data || []).forEach(function (item) {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = item.name;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                showToast('Images: ' + error.message, true);
+            }
+        }
+
+        async function changeImage() {
+            if (!containerId) return;
+            const imageId = document.getElementById('image-select').value;
+            if (!imageId) {
+                showToast('Выберите образ', true);
+                return;
+            }
+            if (!confirm('Сменить образ UserBot? Контейнер будет перезапущен.')) return;
+            try {
+                const payload = await apiRequest('/container/' + encodeURIComponent(containerId) + '/image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image_id: imageId })
+                });
+                writePanel('Image', payload.message || 'Image change queued', '33');
+                showToast('Image change queued');
+            } catch (error) {
+                writePanel('Image error', error.message, '31');
+                showToast(error.message, true);
+            }
+        }
+
+        sendCmd = function (ctrlChar) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'input', data: ctrlChar }));
+                const label = ctrlChar === '\r'
+                    ? 'Enter'
+                    : 'Ctrl+' + String.fromCharCode(ctrlChar.charCodeAt(0) + 64);
+                showToast('Sent: ' + label);
+            }
+        };
+
+        if (!containerId) {
+            document.querySelectorAll('.container-control button, .container-control select').forEach(function (element) {
+                element.disabled = true;
+            });
+        }
+        document.addEventListener('DOMContentLoaded', loadImages);
     </script>
 </body>
 </html>

@@ -15,6 +15,7 @@ from roles import UserRole
 from utils.action_logger import log_action
 import utils.docker as dm
 from ..common.menu_utils import show_management_menu
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.callback_query.filter(IsAdmin(min_level=UserRole.SENIOR_ADMIN))
@@ -26,7 +27,8 @@ async def start_admin_cpu_upgrade(callback: types.CallbackQuery, state: FSMConte
     lex = LEXICON[language_code]
 
     await state.set_state(AdminUpgradeCpuState.waiting_for_container_id)
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=lex.get('admin_upgrade_cpu_prompt_id', "Введите ID контейнера для изменения лимита CPU:"),
         reply_markup=get_cancel_admin_action_keyboard("admin_panel", language_code)
     )

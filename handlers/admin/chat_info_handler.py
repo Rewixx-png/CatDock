@@ -61,7 +61,6 @@ async def get_rinfo_text(target_user: types.User, language_code: str = 'ru') -> 
     text += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
     text += f"<b>💰 Баланс:</b> {user_profile['balance']:.2f} RUB\n"
     text += f"<b>👥 Реф. баланс:</b> {user_profile['ref_balance']:.2f} RUB\n"
-    text += f"<b>💎 RewCoins:</b> {user_profile.get('rewcoin_balance', 0)}\n"
     text += "⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n"
     text += f"<b>🤖 Юзерботов:</b> {len(user_containers)}\n"
     text += f"<b>📅 Регистрация:</b> {user_profile['reg_date']}\n"

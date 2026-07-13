@@ -32,31 +32,19 @@ async def approve_deposit_request(
 ):
     await check_admin_access(user_id)
     
-    req = await db.get_payment_request_by_id(request_id)
-    if not req:
+    req, result = await db.approve_payment_request(request_id, user_id)
+    if result == 'not_found':
         raise HTTPException(status_code=404, detail="Заявка не найдена")
-    
-    if req['status'] != 'pending':
+    if result == 'already_processed':
         raise HTTPException(status_code=400, detail="Заявка уже обработана")
+    if result != 'ok' or not req:
+        raise HTTPException(status_code=500, detail="Не удалось обработать заявку")
 
     bot = request.app.state.bot
     target_user_id = req['user_id']
     amount = req['amount']
 
-    user_profile = await db.get_user_profile(target_user_id)
-    final_amount = amount
-    
-    bonus_percent = user_profile.get('active_deposit_bonus_percent', 0)
-    if bonus_percent > 0:
-        final_amount += amount * (bonus_percent / 100)
-        await db.set_user_deposit_bonus(target_user_id, 0, None)
-
-    await db.update_user_balance(target_user_id, final_amount)
-    await db.update_payment_request_status(request_id, 'approved', admin_id=user_id)
-
-    referrer_id = await db.get_referrer_id(target_user_id)
-    if referrer_id:
-        await db.add_referral_reward(referrer_id, amount)
+    final_amount = req['final_amount']
 
     try:
         await bot.send_message(
@@ -66,9 +54,12 @@ async def approve_deposit_request(
         )
     except Exception: pass
 
-    admin_user = await bot.get_chat(user_id)
-    target_user_obj = await bot.get_chat(target_user_id)
-    await log_action(bot, admin_user, f"одобрил заявку #{request_id} на {amount} RUB (Web)", target_user_obj)
+    try:
+        admin_user = await bot.get_chat(user_id)
+        target_user_obj = await bot.get_chat(target_user_id)
+        await log_action(bot, admin_user, f"одобрил заявку #{request_id} на {amount} RUB (Web)", target_user_obj)
+    except Exception:
+        pass
 
     return {"status": "success", "message": "Одобрено"}
 
@@ -85,11 +76,9 @@ async def decline_deposit_request(
     
     safe_reason = html.escape(raw_reason)
     
-    req = await db.get_payment_request_by_id(request_id)
-    if not req or req['status'] != 'pending':
+    req, result = await db.decline_payment_request(request_id, user_id, safe_reason)
+    if result != 'ok' or not req:
         raise HTTPException(status_code=400, detail="Заявка не актуальна")
-
-    await db.update_payment_request_status(request_id, 'declined', admin_id=user_id, reason=safe_reason)
 
     bot = request.app.state.bot
     try:

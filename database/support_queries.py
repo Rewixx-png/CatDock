@@ -25,7 +25,7 @@ async def create_support_ticket(user_id: int, username: str, subject: str, quest
                 await conn.execute(
                     """INSERT INTO support_messages (ticket_id, sender_id, sender_name, message_text, is_admin_message)
                        VALUES ($1, $2, $3, $4, $5)""",
-                    ticket_id, 1, "RewBot", bot_reply_text, True
+                    ticket_id, 1, "CatDock", bot_reply_text, True
                 )
 
             return ticket_id

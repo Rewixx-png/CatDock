@@ -6,9 +6,9 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile
 from aiogram.exceptions import TelegramBadRequest
 
-from herokutl import TelegramClient
-from herokutl.sessions import StringSession
-from herokutl.errors import SessionPasswordNeededError
+from telethon import TelegramClient
+from telethon.sessions import StringSession
+from telethon.errors import SessionPasswordNeededError
 
 import database as db
 from states.user_states import SessionGenState
@@ -116,7 +116,7 @@ async def phone_handler(message: types.Message, state: FSMContext):
         await message.answer(lex.get('session_enter_code'))
         await state.set_state(SessionGenState.waiting_for_code)
     except Exception as e:
-        logging.error(f"HerokuTL: Ошибка при запросе кода для {phone}: {e}", exc_info=True)
+        logging.error(f"Telethon: Ошибка при запросе кода для {phone}: {e}", exc_info=True)
         await message.answer(lex.get('session_generic_error').format(error=e))
         await cleanup_client(user_id, state)
         await show_session_menu(message, state)
@@ -154,7 +154,7 @@ async def code_handler(message: types.Message, state: FSMContext):
         await state.set_state(SessionGenState.waiting_for_password)
     except Exception as e:
         language_code = await db.get_user_language(user_id) or 'ru'
-        logging.error(f"HerokuTL: Ошибка при вводе кода для {user_id}: {e}", exc_info=True)
+        logging.error(f"Telethon: Ошибка при вводе кода для {user_id}: {e}", exc_info=True)
         await message.answer(LEXICON[language_code].get('session_generic_error').format(error=e))
         await cleanup_client(user_id, state)
         await show_session_menu(message, state)
@@ -170,7 +170,7 @@ async def password_handler(message: types.Message, state: FSMContext):
         await _process_sign_in_final(message, state)
     except Exception as e:
         language_code = await db.get_user_language(user_id) or 'ru'
-        logging.error(f"HerokuTL: Ошибка при вводе пароля для {user_id}: {e}", exc_info=True)
+        logging.error(f"Telethon: Ошибка при вводе пароля для {user_id}: {e}", exc_info=True)
         await message.answer(LEXICON[language_code].get('session_generic_error').format(error=e))
         await cleanup_client(user_id, state)
         await show_session_menu(message, state)
@@ -256,7 +256,7 @@ async def download_sessions_handler(callback: types.CallbackQuery, bot: Bot):
             file_content += f"Comment: {s['comment']}\n"
         file_content += f"{s['session_string']}\n\n"
 
-    file_data = BufferedInputFile(file_content.encode('utf-8'), filename="rew_host_sessions.txt")
+    file_data = BufferedInputFile(file_content.encode('utf-8'), filename="catdock_sessions.txt")
     await bot.send_document(user_id, file_data, caption=lex.get('session_download_caption'))
     await callback.answer()
 

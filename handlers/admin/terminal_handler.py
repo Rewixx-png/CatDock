@@ -12,6 +12,7 @@ from lexicon import LEXICON
 from utils.ssh_runner import run_command_on_server
 import asyncssh 
 from roles import UserRole
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.message.filter(IsAdmin(min_level=UserRole.CO_OWNER))
@@ -29,7 +30,8 @@ async def terminal_server_selection(callback: types.CallbackQuery):
         text=LEXICON.get('ru', {}).get('back_to_admin_panel_button'),
         callback_data="admin_panel"
     ))
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption="Выберите сервер для подключения терминала:",
         reply_markup=builder.as_markup()
     )

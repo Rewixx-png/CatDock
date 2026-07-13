@@ -41,10 +41,6 @@ from .settings import (
 )
 
 get_admin_promo_menu_keyboard = None  # removed
-from .support import (
-    get_admin_ticket_keyboard,
-    get_admin_answer_confirm_keyboard
-)
 from .htop import get_htop_server_keyboard, get_htop_refresh_keyboard
 from .drestart import get_drestart_server_keyboard
 from .dstats import get_dstats_server_keyboard, get_dstats_refresh_keyboard

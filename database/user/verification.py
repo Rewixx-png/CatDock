@@ -37,16 +37,103 @@ async def create_verification_token(user_id: int, server_id: str, image_id: str,
     try:
         pool = await get_db()
         async with pool.acquire() as conn:
-            await conn.execute(
-                """INSERT INTO verification_tokens 
-                   (token, user_id, server_id, image_id, tariff_id, username, creation_date, message_id, chat_id) 
-                   VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8)""",
-                token, user_id, server_id, image_id, tariff_id, username, message_id, chat_id
-            )
+            async with conn.transaction():
+                await conn.execute(
+                    "DELETE FROM verification_tokens WHERE user_id = $1 AND is_used = FALSE",
+                    user_id,
+                )
+                await conn.execute(
+                    """INSERT INTO verification_tokens
+                       (token, user_id, server_id, image_id, tariff_id, username, creation_date, message_id, chat_id)
+                       VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8)""",
+                    token, user_id, server_id, image_id, tariff_id, username, message_id, chat_id
+                )
         return token
     except Exception as e:
         logging.error(f"DB Error create_verification_token: {e}")
         return ""
+
+async def reserve_free_verification_token(token: str) -> tuple[dict | None, str]:
+    """Consume a token and reserve the user's single free container atomically."""
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                valid_time = datetime.now() - timedelta(minutes=30)
+                token_row = await conn.fetchrow(
+                    "SELECT * FROM verification_tokens "
+                    "WHERE token = $1 AND is_used = FALSE AND creation_date > $2 FOR UPDATE",
+                    token,
+                    valid_time,
+                )
+                if not token_row:
+                    return None, "invalid"
+
+                user_id = int(token_row['user_id'])
+                user = await conn.fetchrow(
+                    "SELECT has_used_free_tariff FROM users WHERE user_id = $1 FOR UPDATE",
+                    user_id,
+                )
+                if not user:
+                    return None, "user_not_found"
+
+                existing = await conn.fetchval(
+                    "SELECT 1 FROM user_containers WHERE user_id = $1 LIMIT 1",
+                    user_id,
+                )
+                if existing:
+                    await conn.execute(
+                        "UPDATE verification_tokens SET is_used = TRUE WHERE token = $1",
+                        token,
+                    )
+                    return dict(token_row), "already_exists"
+
+                if bool(user['has_used_free_tariff']):
+                    await conn.execute(
+                        "UPDATE verification_tokens SET is_used = TRUE WHERE token = $1",
+                        token,
+                    )
+                    return None, "already_used"
+
+                await conn.execute(
+                    "UPDATE verification_tokens SET is_used = TRUE WHERE token = $1",
+                    token,
+                )
+                await conn.execute(
+                    "UPDATE users SET has_used_free_tariff = TRUE WHERE user_id = $1",
+                    user_id,
+                )
+                _clear_user_cache(user_id)
+                return dict(token_row), "reserved"
+    except Exception as e:
+        logging.error(f"Ошибка резервирования free-токена: {e}", exc_info=True)
+        return None, "database_error"
+
+async def release_free_verification_token(token: str, user_id: int):
+    """Release a failed reservation when no container was persisted."""
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                has_container = await conn.fetchval(
+                    "SELECT 1 FROM user_containers WHERE user_id = $1 LIMIT 1",
+                    user_id,
+                )
+                if has_container:
+                    return
+                await conn.execute(
+                    "UPDATE users SET has_used_free_tariff = FALSE WHERE user_id = $1",
+                    user_id,
+                )
+                await conn.execute(
+                    "UPDATE verification_tokens SET is_used = FALSE "
+                    "WHERE token = $1 AND user_id = $2",
+                    token,
+                    user_id,
+                )
+        _clear_user_cache(user_id)
+    except Exception as e:
+        logging.error(f"Ошибка освобождения free-токена: {e}", exc_info=True)
 
 async def get_user_by_verification_token(token: str) -> dict | None:
     try:

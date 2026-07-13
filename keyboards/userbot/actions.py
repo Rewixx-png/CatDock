@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 
 from lexicon import LEXICON
-from config import SERVERS, IMAGES, SUBSCRIPTION_PLANS, CPU_UPGRADE_PRICE, RAM_UPGRADE_PRICE
+from config import SERVERS, IMAGES, SUBSCRIPTION_PLANS, CPU_UPGRADE_PRICE
 from utils import bot_state
 
 def get_change_image_keyboard(language_code: str, current_image_id: str) -> InlineKeyboardMarkup:
@@ -66,16 +66,6 @@ def get_cpu_upgrade_keyboard(container_id, current_limit_cores, language_code):
     for percent in [10, 20, 50, 100]:
          cost = (percent / 10.0) * CPU_UPGRADE_PRICE
          builder.add(types.InlineKeyboardButton(text=f"⚡ +{percent}% ({cost:.0f}₽)", callback_data=f"upgrade_cpu_for:{container_id}:{percent}"))
-    builder.adjust(2)
-    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="cancel_change"))
-    return builder.as_markup()
-
-def get_ram_upgrade_keyboard(container_id, current_ram, language_code):
-    lex = LEXICON.get(language_code, LEXICON['ru'])
-    builder = InlineKeyboardBuilder()
-    for mb in [100, 300, 500, 1000]:
-         cost = (mb / 100.0) * RAM_UPGRADE_PRICE
-         builder.add(types.InlineKeyboardButton(text=f"🧠 +{mb}MB ({cost:.0f}₽)", callback_data=f"upgrade_ram_for:{container_id}:{mb}"))
     builder.adjust(2)
     builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="cancel_change"))
     return builder.as_markup()

@@ -25,8 +25,8 @@ async def start_withdrawal(callback: types.CallbackQuery, state: FSMContext):
         return
 
     language_code = await db.get_user_language(user_id) or 'ru'
-    msg = await callback.message.edit_caption(
-        caption=f"💸 <b>Перевод средств</b>\n\n"
+    msg = await callback.message.edit_text(
+        text=f"💸 <b>Перевод средств</b>\n\n"
                 f"Вы можете перевести средства с <b>реферального</b> баланса на <b>основной</b>.\n"
                 f"Доступно: <b>{ref_balance:.2f} RUB</b>\n\n"
                 f"Введите сумму для перевода (минимум {MIN_WITHDRAWAL_AMOUNT:.2f} RUB):",
@@ -65,8 +65,10 @@ async def process_withdrawal_amount(message: types.Message, state: FSMContext, b
         pass
 
     try:
-        await db.debit_referral_balance(user_id, amount)
-        await db.update_user_balance(user_id, amount)
+        if not await db.transfer_referral_balance(user_id, amount):
+            await message.answer("❌ Баланс изменился. Проверьте доступную сумму и попробуйте снова.")
+            await state.clear()
+            return
 
         new_main_balance = await db.get_user_balance(user_id)
 

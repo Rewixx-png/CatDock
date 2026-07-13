@@ -13,6 +13,7 @@ from utils.filters import IsAdmin
 from roles import UserRole
 from utils.action_logger import log_action
 from .main_menu import admin_dashboard as admin_main_menu
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.callback_query.filter(IsAdmin(min_level=UserRole.SENIOR_ADMIN))
@@ -72,7 +73,8 @@ async def start_unfreeze_all(callback: types.CallbackQuery):
         await callback.answer("✅ Нет замороженных контейнеров для разморозки.", show_alert=True)
         return
 
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=lex.get('admin_unfreeze_all_confirm').format(count=count),
         reply_markup=get_simple_confirmation_keyboard(language_code, "admin_unfreeze_all_confirmed", "admin_panel")
     )

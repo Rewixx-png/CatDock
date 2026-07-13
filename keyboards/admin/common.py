@@ -2,7 +2,6 @@ from aiogram import types
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 from lexicon import LEXICON
-from config import WEB_APP_URL
 
 def get_cancel_admin_action_keyboard(back_to: str = "admin_panel", language_code: str = 'ru') -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
@@ -22,9 +21,6 @@ def get_yes_no_keyboard(language_code: str, yes_callback: str, no_callback: str)
 def get_admin_deposit_actions_keyboard(request_id: int, user_id: int, amount: float, language_code: str = 'ru') -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
-
-    admin_url = f"{WEB_APP_URL}/admin/process-deposit/{request_id}"
-    builder.row(types.InlineKeyboardButton(text="⚡️ Web Check", web_app=types.WebAppInfo(url=admin_url)))
 
     builder.row(
         types.InlineKeyboardButton(

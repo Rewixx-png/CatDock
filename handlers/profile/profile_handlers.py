@@ -6,7 +6,7 @@ import asyncio
 from datetime import datetime
 
 import database as db
-from config import REFERRAL_PERCENTAGE
+from config import REFERRAL_PERCENTAGE, ADVANCED_REFERRAL_PERCENTAGE
 from keyboards import get_profile_keyboard, get_referral_menu_keyboard, get_simple_confirmation_keyboard
 from lexicon import LEXICON
 from roles import UserRole, ROLE_NAMES
@@ -114,21 +114,18 @@ async def show_profile_menu(callback: types.CallbackQuery, state: FSMContext, bo
         profile_text = lex.get('error_profile_not_found')
 
     if callback.message:
-        try:
-            if callback.message.photo:
-                try:
-                    await callback.message.edit_text(text=profile_text, reply_markup=get_profile_keyboard(language_code))
-                except TelegramBadRequest as e:
-                    if "message is not modified" not in str(e):
-                         raise e
-            else:
-                await safe_delete_message(bot, callback.message.chat.id, callback.message.message_id)
-                await bot.send_message(chat_id=user_id, text=profile_text, reply_markup=get_profile_keyboard(language_code))
-        except Exception as e:
-            logging.warning(f"Profile refresh fallback: {e}")
-            try: await safe_delete_message(bot, callback.message.chat.id, callback.message.message_id)
-            except: pass
-            await bot.send_message(chat_id=user_id, text=profile_text, reply_markup=get_profile_keyboard(language_code))
+        edited = await safe_edit_caption(
+            callback.message,
+            caption=profile_text,
+            reply_markup=get_profile_keyboard(language_code),
+        )
+        if not edited:
+            await safe_delete_message(bot, callback.message.chat.id, callback.message.message_id)
+            await bot.send_message(
+                chat_id=user_id,
+                text=profile_text,
+                reply_markup=get_profile_keyboard(language_code),
+            )
 
 @router.callback_query(F.data == "ref_system")
 async def show_referral_menu(callback: types.CallbackQuery, bot: Bot):
@@ -142,7 +139,7 @@ async def show_referral_menu(callback: types.CallbackQuery, bot: Bot):
     user_profile = await db.get_user_profile(user_id)
     has_advanced = user_profile.get('has_advanced_referral', 0)
 
-    current_percent = REFERRAL_PERCENTAGE
+    current_percent = ADVANCED_REFERRAL_PERCENTAGE if has_advanced else REFERRAL_PERCENTAGE
 
     bot_info = await bot.get_me()
     bot_username = bot_info.username
@@ -187,14 +184,15 @@ async def buy_advanced_referral(callback: types.CallbackQuery, bot: Bot):
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
 
-    user_balance = await db.get_user_balance(user_id)
-
-    if user_balance < 75.0:
-        await safe_callback_answer(callback, lex.get('insufficient_funds_for_upgrade'), show_alert=True)
+    profile = await db.get_user_profile(user_id)
+    if profile and profile.get('has_advanced_referral'):
+        await safe_callback_answer(callback, lex.get('referral_upgrade_success'), show_alert=True)
+        await show_referral_menu(callback, bot)
         return
 
-    await db.update_user_balance(user_id, -75.0)
-    await db.set_advanced_referral(user_id)
+    if not await db.purchase_advanced_referral(user_id, 75.0):
+        await safe_callback_answer(callback, lex.get('insufficient_funds_for_upgrade'), show_alert=True)
+        return
 
     logging.info(f"Пользователь {user_id} купил продвинутую реферальную систему.")
     await safe_callback_answer(callback, lex.get('referral_upgrade_success'), show_alert=True)

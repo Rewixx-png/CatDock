@@ -1,6 +1,17 @@
 import logging
 from .core import get_db
 
+
+async def count_all_users() -> int:
+    """Return the total user count, or zero while the database is unavailable."""
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            return int(await conn.fetchval("SELECT COUNT(*) FROM users") or 0)
+    except Exception as e:
+        logging.error(f"DB Error count_all_users: {e}")
+        return 0
+
 async def get_dashboard_stats():
     stats = {
         "total_users": 0,

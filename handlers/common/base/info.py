@@ -1,14 +1,14 @@
-from aiogram import Router, types, F, Bot
+from aiogram import Router, types, F
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.exceptions import TelegramBadRequest
 from datetime import datetime
-import asyncio
 
 import database as db
 from lexicon import LEXICON
 from roles import UserRole, ROLE_NAMES
-from config import WEB_APP_URL
+from config import SERVERS
+from utils import bot_state
 
 router = Router()
 
@@ -19,10 +19,9 @@ HELP_CATEGORIES = {
         'content': (
             "👤 <b>ПОЛЬЗОВАТЕЛЬСКОЕ:</b>\n\n"
             "🔹 <code>/start</code> — Главное меню / Перезагрузка\n"
-            "🔹 <code>/top</code> — Доска почета\n"
             "🔹 <code>/status</code> — Состояние серверов\n"
             "🔹 <code>/ping</code> — Проверка скорости отклика\n"
-            "🔹 <code>/login</code> — Ссылка на веб-панель\n\n"
+            "🔹 <code>/login</code> или <code>/terminal</code> — CatDock Terminal\n\n"
             "ℹ️ <i>Все остальные функции доступны через кнопки меню.</i>"
         )
     },
@@ -32,14 +31,6 @@ HELP_CATEGORIES = {
         'content': (
             "🛡 <b>АДМИНИСТРАТОР:</b>\n\n"
             "🔸 <code>/admin</code> — Панель управления\n"
-            "🔸 <code>/stats</code> — Аналитика ресурсов (графики)\n"
-            "🔸 <code>/ban [время] [причина]</code> — Бан (реплай)\n"
-            "🔸 <code>/unban</code> — Разбан (реплай)\n"
-            "🔸 <code>/mute [время] [причина]</code> — Мут (реплай)\n"
-            "🔸 <code>/unmute</code> — Размут (реплай)\n"
-            "🔸 <code>/kick</code> — Кикнуть участника\n"
-            "🔸 <code>/warn</code> / <code>/unwarn</code> — Варны\n"
-            "🔸 <code>/raidcheck</code> — Проверить юзера в БД (реплай)\n"
             "🔸 <code>/cont check [ID]</code> — Инспекция контейнера\n"
             "🔸 <code>/cont delete [ID]</code> — <b>Удалить</b> контейнер\n"
             "🔸 <code>/cont logs [ID]</code> — Получить логи\n"
@@ -54,13 +45,9 @@ HELP_CATEGORIES = {
             "💠 <code>/give cont</code> — Выдать контейнер (реплай)\n"
             "💠 <code>/give money [сумма]</code> — Выдать баланс\n"
             "💠 <code>/give rmoney [сумма]</code> — Выдать реф. баланс\n"
-            "💠 <code>/give check [кол-во]</code> — Выдать игровые чеки\n"
-            "💠 <code>/admin [lvl] [prefix]</code> — Назначить админа чата\n"
-            "💠 <code>/unadmin</code> — Снять админа чата\n"
             "💠 <code>/rinfo</code> — Полное досье на юзера (реплай)\n"
             "💠 <code>/report</code> — Принудительный отчет по серверам\n"
-            "💠 <code>/session</code> — Поиск контейнеров без сессий\n"
-            "💠 <code>/purge_chat</code> — Инструкция по чистке чата"
+            "💠 <code>/session</code> — Поиск контейнеров без сессий"
         )
     },
     'system': {
@@ -68,7 +55,6 @@ HELP_CATEGORIES = {
         'button_text': "⚡️ Системное Ядро",
         'content': (
             "⚡️ <b>СИСТЕМНОЕ ЯДРО:</b>\n\n"
-            "☢️ <code>/migration</code> — Миграция с оффлайн нод\n"
             "☢️ <code>/htop</code> — Мониторинг ресурсов (GUI)\n"
             "☢️ <code>/dstats</code> — Docker Stats (GUI)\n"
             "☢️ <code>/drestart</code> — Плавный рестарт ноды\n"
@@ -85,13 +71,29 @@ HELP_CATEGORIES = {
 
 @router.message(Command("status"))
 async def cmd_status(message: types.Message):
-    builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(text="🌍 Открыть страницу статуса", url="https://catdock.catdock.io/status"))
+    await message.answer(_format_server_status())
 
-    await message.answer(
-        "📊 Чтобы проверить актуальное состояние серверов, перейдите на нашу страницу статуса:",
-        reply_markup=builder.as_markup()
-    )
+
+def _format_server_status() -> str:
+    if not SERVERS:
+        return "📊 Серверы пока не настроены."
+
+    lines = ["📊 <b>Состояние серверов CatDock</b>", ""]
+    for server_id, server in SERVERS.items():
+        enabled = bot_state.server_states.get(server_id, True)
+        status = next(
+            (item.get('status') for item in bot_state.server_statuses_cache if item.get('id') == server_id),
+            'unknown',
+        )
+        icon = "🟢" if enabled and status in {'online', 'ok'} else "🟡" if enabled else "🔴"
+        lines.append(f"{icon} {server.get('name', server_id)} — {status}")
+    return "\n".join(lines)
+
+
+@router.callback_query(F.data == "show_server_status")
+async def show_server_status(callback: types.CallbackQuery):
+    await callback.answer()
+    await callback.message.answer(_format_server_status())
 
 @router.message(Command("ping"))
 async def cmd_ping(message: types.Message):

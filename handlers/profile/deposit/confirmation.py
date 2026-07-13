@@ -5,14 +5,10 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import LabeledPrice
 
 import database as db
-from config import PAYMENT_PHONE
+from config import PAYMENT_PHONE, STAR_TO_RUB_RATE, CARD_PAYMENT_DETAILS
 from states.user_states import DepositState
 from lexicon import LEXICON
-from keyboards import get_card_payment_confirmation_keyboard, get_card_selection_keyboard
-
-
-async def create_crypto_invoice(amount, user_id):
-    return None
+from keyboards import get_card_payment_confirmation_keyboard, get_country_selection_keyboard
 
 router = Router()
 
@@ -29,8 +25,20 @@ async def show_final_deposit_confirmation(callback: types.CallbackQuery, state: 
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
 
-    if not method_id or not amount:
+    try:
+        amount = float(amount)
+    except (TypeError, ValueError):
+        amount = 0
+
+    allowed_methods = {'stars'}
+    if PAYMENT_PHONE:
+        allowed_methods.add('sbp')
+    if any(CARD_PAYMENT_DETAILS.values()):
+        allowed_methods.add('cards')
+
+    if method_id not in allowed_methods or amount <= 0:
         await callback.answer("❌ Ошибка данных. Попробуйте заново.", show_alert=True)
+        await state.clear()
         return
 
     await callback.message.delete()
@@ -49,8 +57,8 @@ async def show_final_deposit_confirmation(callback: types.CallbackQuery, state: 
         if not card_info:
             await state.set_state(DepositState.choosing_country)
             await callback.message.answer(
-                "⚠️ Не выбран банк или карта. Пожалуйста, выберите метод оплаты заново.",
-                reply_markup=get_card_selection_keyboard('ru', language_code) 
+                lex.get('choose_country_prompt', 'Выберите страну карты:'),
+                reply_markup=get_country_selection_keyboard(language_code),
             )
             return
 
@@ -62,22 +70,6 @@ async def show_final_deposit_confirmation(callback: types.CallbackQuery, state: 
         )
         await callback.message.answer(payment_instructions, reply_markup=get_card_payment_confirmation_keyboard(language_code))
         await state.set_state(DepositState.waiting_for_card_payment)
-
-    elif method_id == 'crypto':
-        status_msg = await callback.message.answer("⏳ Создаем счет...")
-        invoice_data = await create_crypto_invoice(amount, user_id)
-        if invoice_data and invoice_data.get('bot_invoice_url'):
-            invoice_id = invoice_data['invoice_id']
-            await state.set_state(DepositState.waiting_for_crypto_payment_confirmation)
-            await state.update_data(invoice_id=invoice_id, rub_amount=amount)
-            builder = InlineKeyboardBuilder()
-            builder.row(types.InlineKeyboardButton(text=lex.get('go_to_payment_button'), url=invoice_data['bot_invoice_url']))
-            builder.row(types.InlineKeyboardButton(text=lex.get('check_payment_button'), callback_data=f"check_crypto:{invoice_id}"))
-            builder.row(types.InlineKeyboardButton(text=lex.get('cancel_button'), callback_data="cancel_payment"))
-            await status_msg.edit_text(lex.get('crypto_invoice_created'), reply_markup=builder.as_markup())
-        else:
-            await status_msg.edit_text(lex.get('crypto_api_error'))
-            await state.clear()
 
     elif method_id == 'stars':
         star_amount = data.get('star_amount')
@@ -97,3 +89,35 @@ async def show_final_deposit_confirmation(callback: types.CallbackQuery, state: 
         await state.clear()
 
     await callback.answer()
+
+
+@router.pre_checkout_query()
+async def approve_stars_pre_checkout(query: types.PreCheckoutQuery):
+    if query.currency != 'XTR' or not query.invoice_payload.startswith('star-payment-'):
+        await query.answer(ok=False, error_message="Некорректный счёт CatDock.")
+        return
+    await query.answer(ok=True)
+
+
+@router.message(F.successful_payment)
+async def process_successful_stars_payment(message: types.Message):
+    payment = message.successful_payment
+    if payment.currency != 'XTR' or not payment.invoice_payload.startswith('star-payment-'):
+        return
+
+    star_amount = payment.total_amount
+    rub_amount = star_amount * STAR_TO_RUB_RATE
+    credited = await db.credit_star_payment(
+        charge_id=payment.telegram_payment_charge_id,
+        user_id=message.from_user.id,
+        star_amount=star_amount,
+        rub_amount=rub_amount,
+    )
+    if not credited:
+        await message.answer("ℹ️ Этот платёж уже был зачислен.")
+        return
+
+    await message.answer(
+        f"✅ Оплата получена: <b>{star_amount} Stars</b>. "
+        f"Баланс пополнен на <b>{rub_amount:.2f} RUB</b>."
+    )

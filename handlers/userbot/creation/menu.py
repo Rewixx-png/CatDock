@@ -11,7 +11,6 @@ from keyboards import (
     get_image_selection_for_hub
 )
 from states.user_states import UserBotCreateState
-from lexicon import LEXICON
 from utils.action_logger import log_action
 from ...common.menu_utils import set_loading_state
 
@@ -60,17 +59,28 @@ async def select_category(callback: types.CallbackQuery, state: FSMContext):
     if category == "tariff":
         await state.set_state(UserBotCreateState.choosing_tariff)
         markup = await get_tariff_selection_for_hub(language_code, user_id)
-        await callback.message.edit_caption(caption="<b>Шаг 1: Выбор Тарифа</b>", reply_markup=markup)
+        await callback.message.edit_text(text="<b>Шаг 1: Выбор Тарифа</b>", reply_markup=markup)
     elif category == "image":
         await state.set_state(UserBotCreateState.choosing_image)
-        await callback.message.edit_caption(caption="<b>Шаг 2: Выбор Образа</b>", reply_markup=get_image_selection_for_hub(language_code))
+        await callback.message.edit_text(text="<b>Шаг 2: Выбор Образа</b>", reply_markup=get_image_selection_for_hub(language_code))
     await callback.answer()
 
 @router.callback_query(F.data.startswith("create_set:"))
 async def set_option_and_return_to_hub(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
     parts = callback.data.split(":")
+    if len(parts) != 3:
+        await callback.answer("❌ Некорректные данные.", show_alert=True)
+        return
     option_type = parts[1]
     option_value = parts[2]
+
+    valid_options = {
+        'tariff': TARIFFS,
+        'image': IMAGES,
+    }
+    if option_type not in valid_options or option_value not in valid_options[option_type]:
+        await callback.answer("❌ Этот вариант недоступен.", show_alert=True)
+        return
 
     current_state = await state.get_state()
     if not current_state:

@@ -16,6 +16,7 @@ from keyboards.common_keyboards import get_simple_confirmation_keyboard
 from lexicon import LEXICON
 import database as db
 from utils.ssh_runner import run_command_on_server
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.callback_query.filter(IsAdmin(min_level=UserRole.CO_OWNER))
@@ -101,7 +102,8 @@ async def select_server_for_update_handler(callback: types.CallbackQuery, state:
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[language_code]
 
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=lex.get('image_update_select_server', "Выберите сервер для обновления образов:"),
         reply_markup=get_server_for_update_keyboard(language_code)
     )
@@ -117,7 +119,8 @@ async def confirm_server_update_handler(callback: types.CallbackQuery, state: FS
     await state.set_state(ImageUpdateState.confirming_update)
     await state.update_data(server_id=server_id)
 
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=lex.get('image_update_confirm', "Вы уверены, что хотите обновить все образы на сервере <b>{server_name}</b>? Это может занять несколько минут.").format(server_name=server_name),
         reply_markup=get_simple_confirmation_keyboard(
             language_code,

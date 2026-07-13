@@ -3,7 +3,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import InlineKeyboardMarkup
 
 from lexicon import LEXICON
-from config import CARD_PAYMENT_DETAILS, SUBSCRIPTION_PLANS, SERVERS, WEB_APP_URL
+from config import CARD_PAYMENT_DETAILS, SUBSCRIPTION_PLANS, SERVERS, WEB_APP_URL, PAYMENT_PHONE
 
 def get_profile_keyboard(language_code: str) -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
@@ -53,15 +53,21 @@ def get_payment_methods_keyboard(language_code: str) -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
 
-    builder.row(
-        types.InlineKeyboardButton(text=lex.get('crypto_pay_button', '💎 Crypto Pay'), callback_data="deposit_set_method:crypto"),
-        types.InlineKeyboardButton(text=lex.get('stars_button', '⭐ Stars'), callback_data="deposit_set_method:stars")
-    )
-
-    builder.row(
-        types.InlineKeyboardButton(text=lex.get('sbp_button', 'sbp_button'), callback_data="deposit_set_method:sbp"),
-        types.InlineKeyboardButton(text=lex.get('cards_button', 'cards_button'), callback_data="deposit_set_method:cards")
-    )
+    builder.add(types.InlineKeyboardButton(
+        text=lex.get('stars_button', '⭐ Telegram Stars'),
+        callback_data="deposit_set_method:stars",
+    ))
+    if PAYMENT_PHONE:
+        builder.add(types.InlineKeyboardButton(
+            text=lex.get('sbp_button', '📱 СБП'),
+            callback_data="deposit_set_method:sbp",
+        ))
+    if any(CARD_PAYMENT_DETAILS.values()):
+        builder.add(types.InlineKeyboardButton(
+            text=lex.get('cards_button', '💳 Банковская карта'),
+            callback_data="deposit_set_method:cards",
+        ))
+    builder.adjust(2)
 
     builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="deposit_hub:back"))
     return builder.as_markup()
@@ -69,10 +75,17 @@ def get_payment_methods_keyboard(language_code: str) -> InlineKeyboardMarkup:
 def get_country_selection_keyboard(language_code: str) -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
-    builder.row(
-        types.InlineKeyboardButton(text=lex.get('russian_cards', "🇷🇺 РФ"), callback_data="select_country:ru"),
-        types.InlineKeyboardButton(text=lex.get('ukrainian_cards', "🇺🇦 Украина"), callback_data="select_country:ua")
-    )
+    country_labels = {
+        'ru': lex.get('russian_cards', "🇷🇺 РФ"),
+        'ua': lex.get('ukrainian_cards', "🇺🇦 Украина"),
+    }
+    for country_code, cards in CARD_PAYMENT_DETAILS.items():
+        if cards:
+            builder.add(types.InlineKeyboardButton(
+                text=country_labels.get(country_code, country_code.upper()),
+                callback_data=f"select_country:{country_code}",
+            ))
+    builder.adjust(2)
     builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="deposit_hub:back"))
     return builder.as_markup()
 
@@ -107,14 +120,6 @@ def get_referral_menu_keyboard(has_advanced: bool, language_code: str) -> Inline
     builder = InlineKeyboardBuilder()
     if not has_advanced:
         builder.row(types.InlineKeyboardButton(text=lex.get('upgrade_referral_button', '🚀 Upgrade').format(price=75), callback_data="upgrade_referral_confirm"))
-    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_profile_button', 'back_to_profile_button'), callback_data="profile"))
-    return builder.as_markup()
-
-def get_bonus_container_selection_keyboard(containers: list, language_code: str) -> InlineKeyboardMarkup:
-    lex = LEXICON.get(language_code, LEXICON['ru'])
-    builder = InlineKeyboardBuilder()
-    for c in containers:
-        builder.row(types.InlineKeyboardButton(text=f"📦 {c['container_name']}", callback_data=f"bonus_container:{c['id']}"))
     builder.row(types.InlineKeyboardButton(text=lex.get('back_to_profile_button', 'back_to_profile_button'), callback_data="profile"))
     return builder.as_markup()
 
@@ -157,25 +162,7 @@ def get_profile_settings_keyboard(settings: dict, language_code: str) -> InlineK
     if buttons_row2:
         builder.row(*buttons_row2)
 
-    photo_icon = "✅" if settings.get('use_custom_photo') else "❌"
-    builder.row(types.InlineKeyboardButton(
-        text=lex.get('custom_photo_button', f"Кастомное фото {photo_icon}"),
-        callback_data="toggle_profile_setting:use_custom_photo"
-    ))
-
-    style_text = "Старые (JPEG)" if settings.get('use_old_banners') else "Новые (PNG)"
-    builder.row(types.InlineKeyboardButton(
-        text=f"🖼 Баннеры: {style_text}",
-        callback_data="toggle_profile_setting:use_old_banners"
-    ))
-
     builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="settings_menu"))
-    return builder.as_markup()
-
-def get_ticket_rating_keyboard(ticket_id: int) -> InlineKeyboardMarkup:
-    builder = InlineKeyboardBuilder()
-    for i in range(1, 6):
-        builder.add(types.InlineKeyboardButton(text=f"{i} ⭐", callback_data=f"rate_ticket:{ticket_id}:{i}"))
     return builder.as_markup()
 
 def get_session_view_keyboard(sessions: list, language_code: str) -> InlineKeyboardMarkup:

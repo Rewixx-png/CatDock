@@ -7,17 +7,6 @@ from utils.action_logger import log_action
 from aiogram import types
 
 PATH_TRANSLATIONS = {
-    "/api/v1/user/games/mines/start": "💣 <b>Mines:</b> Начало новой игры",
-    "/api/v1/user/games/mines/click": "💣 <b>Mines:</b> Ход (открытие ячейки)",
-    "/api/v1/user/games/mines/cashout": "💰 <b>Mines:</b> Вывод денег (Cashout)",
-
-    "/api/v1/user/games/towers/start": "🗼 <b>Towers:</b> Начало новой игры",
-    "/api/v1/user/games/towers/step": "🗼 <b>Towers:</b> Подъем на уровень",
-    "/api/v1/user/games/towers/cashout": "💰 <b>Towers:</b> Вывод денег (Cashout)",
-
-    "/api/v1/user/games/roulette/spin": "🎰 <b>Рулетка:</b> Спин",
-    "/api/v1/user/games/roulette/spin-multiple": "🎰 <b>Рулетка:</b> Мульти-спин (x10)",
-
     "/api/v1/user/tariffs/purchase": "🛒 <b>Магазин:</b> Покупка контейнера",
     "/api/v1/user/deposit/manual": "💳 <b>Финансы:</b> Создание заявки на пополнение",
     "/api/v1/user/referrals/upgrade": "🚀 <b>Рефералка:</b> Покупка PRO уровня",

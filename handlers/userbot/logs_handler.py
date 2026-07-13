@@ -1,15 +1,11 @@
-import logging
-from aiogram import Router, types, F, Bot
+from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import database as db
 from config import WEB_APP_URL
-from keyboards import get_cancel_keyboard
 from lexicon import LEXICON
-from ..common.menu_utils import show_management_menu
-import settings
 
 router = Router()
 
@@ -20,7 +16,7 @@ async def get_logs_handler(callback: types.CallbackQuery, state: FSMContext):
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
 
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(container_id, user_id)
     if not container:
         await callback.answer("❌ Контейнер не найден.", show_alert=True)
         return
@@ -32,17 +28,18 @@ async def get_logs_handler(callback: types.CallbackQuery, state: FSMContext):
         return
 
     base_url = WEB_APP_URL.rstrip('/')
-    logs_url = f"{base_url}/logs/view/{token}"
+    logs_url = f"{base_url}/terminal.html?token={token}&container_id={container_id}"
 
     builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(text="🖥️ Открыть терминал логов", url=logs_url))
+    builder.row(types.InlineKeyboardButton(text="🖥️ Открыть CatDock Terminal", url=logs_url))
     builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data=f"manage_bot:{container_id}"))
 
     text = (
         "📋 <b>Просмотр логов</b>\n\n"
-        "Сгенерирована безопасная ссылка для просмотра логов в браузере.\n"
-        "• Подсветка синтаксиса\n"
-        "• Удобный поиск и копирование\n"
+        "Сгенерирована безопасная ссылка для управления UserBot в браузере.\n"
+        "• Интерактивный терминал и логи\n"
+        "• Статус и перезапуск\n"
+        "• Загрузка сессии и выбор образа\n"
         "• Ссылка активна <b>30 минут</b>"
     )
 

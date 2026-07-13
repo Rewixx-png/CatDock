@@ -33,20 +33,36 @@ async def safe_edit_text(
         return False
 
 async def safe_edit_caption(
-    message: types.Message,
-    caption: str,
+    message: Optional[types.Message] = None,
+    caption: str = "",
     reply_markup: Optional[types.InlineKeyboardMarkup] = None,
-    parse_mode: str = "HTML"
+    parse_mode: str = "HTML",
+    callback: Optional[types.CallbackQuery] = None,
 ) -> bool:
     """
-    Безопасное редактирование подписи к медиа.
+    Безопасно редактирует и текстовые сообщения, и подписи к медиа.
+
+    ``callback=...`` поддерживается для старых вызовов из main flow.
     """
+    if message is None and callback is not None:
+        message = callback.message
+    if message is None:
+        return False
+
     try:
-        await message.edit_caption(
-            caption=caption,
-            reply_markup=reply_markup,
-            parse_mode=parse_mode
-        )
+        if message.caption is not None:
+            await message.edit_caption(
+                caption=caption,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode,
+            )
+        else:
+            await message.edit_text(
+                text=caption,
+                reply_markup=reply_markup,
+                parse_mode=parse_mode,
+                disable_web_page_preview=True,
+            )
         return True
     except TelegramBadRequest as e:
         if "message is not modified" in str(e):

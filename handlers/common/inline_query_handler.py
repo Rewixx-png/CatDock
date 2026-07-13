@@ -92,7 +92,7 @@ async def inline_mode_handler(query: InlineQuery, bot: Bot):
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
                         InlineKeyboardButton(
                             text=lex.get('inline_create_bot_button', "➕ Создать UserBot"),
-                            url=f"https://t.me/{bot_info.username}?start=tariffs"
+                            url=f"https://t.me/{bot_info.username}"
                         )
                     ]])
                 )

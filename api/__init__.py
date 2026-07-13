@@ -218,6 +218,19 @@ def setup_api_server(bot: Bot) -> FastAPI:
         content = content.replace("</head>", f"{custom_css}</head>")
         return HTMLResponse(content=content)
 
-    # No SPA web/ mount — CatDock serves terminal.html only
+    async def terminal_response() -> HTMLResponse:
+        terminal_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "terminal.html")
+        if not os.path.exists(terminal_path):
+            raise StarletteHTTPException(status_code=404, detail="Terminal template not found")
+        with open(terminal_path, "r", encoding="utf-8") as terminal_file:
+            return HTMLResponse(content=terminal_file.read())
+
+    @app.get("/", response_class=HTMLResponse, include_in_schema=False)
+    async def terminal_root():
+        return await terminal_response()
+
+    @app.get("/terminal.html", response_class=HTMLResponse, include_in_schema=False)
+    async def terminal_page():
+        return await terminal_response()
 
     return app

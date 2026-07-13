@@ -1,8 +1,11 @@
 import logging
 from .core import get_db
 import json
+from config import REFERRAL_PERCENTAGE, ADVANCED_REFERRAL_PERCENTAGE
 
 async def create_payment_request(user_id: int, amount: float, method: str, details: dict) -> int | None:
+    if amount <= 0 or not method:
+        return None
     try:
         pool = await get_db()
         async with pool.acquire() as conn:
@@ -93,6 +96,123 @@ async def update_payment_request_status(request_id: int, status: str, admin_id: 
     except Exception as e:
         logging.error(f"DB Error update_payment_request_status: {e}")
 
+async def approve_payment_request(request_id: int, admin_id: int) -> tuple[dict | None, str]:
+    """Atomically approve and credit a pending manual payment exactly once."""
+    target_user_id = None
+    referrer_id = None
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                request = await conn.fetchrow(
+                    "SELECT * FROM payment_requests WHERE id = $1 FOR UPDATE",
+                    request_id,
+                )
+                if not request:
+                    return None, "not_found"
+                if request['status'] != 'pending':
+                    return dict(request), "already_processed"
+
+                amount = float(request['amount'])
+                if amount <= 0:
+                    return None, "invalid_amount"
+
+                target_user_id = int(request['user_id'])
+                user = await conn.fetchrow(
+                    "SELECT active_deposit_bonus_percent, referrer_id "
+                    "FROM users WHERE user_id = $1 FOR UPDATE",
+                    target_user_id,
+                )
+                if not user:
+                    return None, "user_not_found"
+
+                bonus_percent = max(0, int(user['active_deposit_bonus_percent'] or 0))
+                bonus_amount = round(amount * bonus_percent / 100.0, 2)
+                final_amount = round(amount + bonus_amount, 2)
+                await conn.execute(
+                    "UPDATE users SET balance = balance + $1, "
+                    "active_deposit_bonus_percent = 0, active_deposit_bonus_code = NULL "
+                    "WHERE user_id = $2",
+                    final_amount,
+                    target_user_id,
+                )
+
+                referrer_id = user['referrer_id']
+                referral_reward = 0.0
+                if referrer_id:
+                    is_advanced = await conn.fetchval(
+                        "SELECT has_advanced_referral FROM users WHERE user_id = $1 FOR UPDATE",
+                        referrer_id,
+                    )
+                    referral_percent = (
+                        ADVANCED_REFERRAL_PERCENTAGE if is_advanced else REFERRAL_PERCENTAGE
+                    )
+                    referral_reward = round(amount * referral_percent, 2)
+                    await conn.execute(
+                        "UPDATE users SET ref_balance = ref_balance + $1 WHERE user_id = $2",
+                        referral_reward,
+                        referrer_id,
+                    )
+
+                await conn.execute(
+                    "UPDATE payment_requests SET status = 'approved', processed_by = $1, "
+                    "decline_reason = NULL, updated_at = NOW() WHERE id = $2",
+                    admin_id,
+                    request_id,
+                )
+
+                result = dict(request)
+                result.update(
+                    final_amount=final_amount,
+                    bonus_percent=bonus_percent,
+                    referral_reward=referral_reward,
+                )
+
+        from .user.profile import _clear_user_cache
+
+        _clear_user_cache(target_user_id)
+        if referrer_id:
+            _clear_user_cache(int(referrer_id))
+        return result, "ok"
+    except Exception as e:
+        logging.error(f"DB Error approve_payment_request: {e}", exc_info=True)
+        return None, "database_error"
+
+async def decline_payment_request(
+    request_id: int,
+    admin_id: int,
+    reason: str,
+) -> tuple[dict | None, str]:
+    """Atomically decline a pending manual payment exactly once."""
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE payment_requests
+                SET status = 'declined', processed_by = $1,
+                    decline_reason = $2, updated_at = NOW()
+                WHERE id = $3 AND status = 'pending'
+                RETURNING *
+                """,
+                admin_id,
+                reason,
+                request_id,
+            )
+            if row:
+                return dict(row), "ok"
+
+            existing = await conn.fetchrow(
+                "SELECT * FROM payment_requests WHERE id = $1",
+                request_id,
+            )
+            if not existing:
+                return None, "not_found"
+            return dict(existing), "already_processed"
+    except Exception as e:
+        logging.error(f"DB Error decline_payment_request: {e}", exc_info=True)
+        return None, "database_error"
+
 async def check_star_payment_exists(charge_id: str) -> bool:
     try:
         pool = await get_db()
@@ -118,6 +238,57 @@ async def log_star_payment(charge_id: str, user_id: int, star_amount: int, rub_a
             )
     except Exception as e:
         logging.error(f"DB Error log_star_payment: {e}")
+
+
+async def credit_star_payment(charge_id: str, user_id: int, star_amount: int, rub_amount: float) -> bool:
+    """Atomically record a Telegram Stars payment and credit it once."""
+    referrer_id = None
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            async with conn.transaction():
+                payment_id = await conn.fetchval(
+                    """
+                    INSERT INTO star_payments
+                        (telegram_payment_charge_id, user_id, star_amount, rub_amount)
+                    VALUES ($1, $2, $3, $4)
+                    ON CONFLICT (telegram_payment_charge_id) DO NOTHING
+                    RETURNING id
+                    """,
+                    charge_id, user_id, star_amount, rub_amount,
+                )
+                if payment_id is None:
+                    return False
+                await conn.execute(
+                    "UPDATE users SET balance = balance + $1 WHERE user_id = $2",
+                    rub_amount, user_id,
+                )
+                referrer_id = await conn.fetchval(
+                    "SELECT referrer_id FROM users WHERE user_id = $1",
+                    user_id,
+                )
+                if referrer_id:
+                    is_advanced = await conn.fetchval(
+                        "SELECT has_advanced_referral FROM users WHERE user_id = $1 FOR UPDATE",
+                        referrer_id,
+                    )
+                    referral_percent = (
+                        ADVANCED_REFERRAL_PERCENTAGE if is_advanced else REFERRAL_PERCENTAGE
+                    )
+                    await conn.execute(
+                        "UPDATE users SET ref_balance = ref_balance + $1 WHERE user_id = $2",
+                        round(float(rub_amount) * referral_percent, 2),
+                        referrer_id,
+                    )
+
+        from .user.profile import _clear_user_cache
+        _clear_user_cache(user_id)
+        if referrer_id:
+            _clear_user_cache(int(referrer_id))
+        return True
+    except Exception as e:
+        logging.error(f"DB Error credit_star_payment: {e}", exc_info=True)
+        return False
 
 async def check_crypto_payment_exists(invoice_id: int) -> bool:
     try:

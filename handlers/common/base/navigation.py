@@ -1,16 +1,9 @@
 from aiogram import Router, types, F
-from aiogram.filters import Command
-from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
-from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 import database as db
 from keyboards import get_misc_menu_keyboard
-from lexicon import LEXICON
-from roles import ROLE_NAMES
-from utils.network_checker import get_server_ram_usage
 from ..menu_utils import set_loading_state
-from config import WEB_APP_URL
 
 router = Router()
 

@@ -1,6 +1,5 @@
 import math
 import logging
-import asyncio
 from aiogram import F, Router, types, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
@@ -23,8 +22,7 @@ from utils.filters import IsAdmin
 from lexicon import LEXICON
 from roles import UserRole
 from utils.action_logger import log_action
-from config import SERVERS, WEB_APP_URL, TARIFFS, DEFAULT_CPU_LIMIT
-from utils import bot_state
+from config import SERVERS, WEB_APP_URL
 from utils.ui_utils import safe_edit_text, safe_edit_caption, safe_delete_message, safe_callback_answer
 
 router = Router()
@@ -121,10 +119,13 @@ async def cmd_cont_action(message: types.Message, command: CommandObject, bot: B
                 return
 
             base_url = WEB_APP_URL.rstrip('/')
-            logs_url = f"{base_url}/logs/view/{token}"
+            logs_url = (
+                f"{base_url}/terminal.html?token={token}"
+                f"&container_id={container_id}"
+            )
 
             builder = InlineKeyboardBuilder()
-            builder.row(types.InlineKeyboardButton(text="🖥 Открыть логи (Web)", url=logs_url))
+            builder.row(types.InlineKeyboardButton(text="🖥 Открыть CatDock Terminal", url=logs_url))
 
             await safe_edit_text(
                 status_msg,

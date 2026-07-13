@@ -1,9 +1,8 @@
-from aiogram import Router, types, F, Bot
+from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from aiogram.exceptions import TelegramBadRequest
 
 import database as db
-from config import CARD_PAYMENT_DETAILS
+from config import CARD_PAYMENT_DETAILS, PAYMENT_PHONE
 from keyboards import get_payment_methods_keyboard, get_country_selection_keyboard, get_card_selection_keyboard, get_cancel_keyboard
 from states.user_states import DepositState
 from lexicon import LEXICON
@@ -24,7 +23,7 @@ async def select_deposit_category(callback: types.CallbackQuery, state: FSMConte
 
     if category == "method":
         await state.set_state(DepositState.choosing_method)
-        await callback.message.edit_caption("<b>Шаг 1: Выбор способа оплаты</b>", reply_markup=get_payment_methods_keyboard(language_code))
+        await callback.message.edit_text("<b>Шаг 1: Выбор способа оплаты</b>", reply_markup=get_payment_methods_keyboard(language_code))
 
     elif category == "amount":
         selected_method = data.get('method_id')
@@ -36,12 +35,12 @@ async def select_deposit_category(callback: types.CallbackQuery, state: FSMConte
         if selected_method == 'stars':
             prompt_text = lex.get('enter_star_amount_prompt')
             next_state = DepositState.waiting_for_star_amount
-        elif selected_method == 'crypto':
-            prompt_text = lex.get('enter_crypto_amount_prompt')
-            next_state = DepositState.waiting_for_amount 
-        else: 
+        elif selected_method in {'sbp', 'cards'}:
             prompt_text = "Введите сумму для пополнения в рублях (например, 100):"
             next_state = DepositState.waiting_for_amount
+        else:
+            await callback.answer("Выбранный способ оплаты недоступен.", show_alert=True)
+            return
 
         await callback.message.delete()
         msg = await callback.message.answer(prompt_text, reply_markup=get_cancel_keyboard(language_code))
@@ -50,31 +49,46 @@ async def select_deposit_category(callback: types.CallbackQuery, state: FSMConte
 
     elif category == "country_bank":
         await state.set_state(DepositState.choosing_country)
-        await callback.message.edit_caption(lex.get('choose_country_prompt', 'choose_country_prompt'), reply_markup=get_country_selection_keyboard(language_code))
+        await callback.message.edit_text(lex.get('choose_country_prompt', 'choose_country_prompt'), reply_markup=get_country_selection_keyboard(language_code))
 
     await callback.answer()
 
 @router.callback_query(DepositState.choosing_method, F.data.startswith("deposit_set_method:"))
 async def set_method_and_return_to_hub(callback: types.CallbackQuery, state: FSMContext):
     method_id = callback.data.split(":")[1]
+    allowed_methods = {'stars'}
+    if PAYMENT_PHONE:
+        allowed_methods.add('sbp')
+    if any(CARD_PAYMENT_DETAILS.values()):
+        allowed_methods.add('cards')
+    if method_id not in allowed_methods:
+        await callback.answer("Этот способ оплаты недоступен.", show_alert=True)
+        return
     await state.update_data(method_id=method_id, amount=None, card_info=None, star_amount=None)
     await show_deposit_hub(callback, state)
 
 @router.callback_query(DepositState.choosing_country, F.data.startswith("select_country:"))
 async def select_country(callback: types.CallbackQuery, state: FSMContext):
     country_code = callback.data.split(":")[1]
+    if not CARD_PAYMENT_DETAILS.get(country_code):
+        await callback.answer("Страна недоступна.", show_alert=True)
+        return
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     await state.set_state(DepositState.choosing_bank)
-    await callback.message.edit_caption(
-        caption=LEXICON[language_code]['choose_bank_prompt'],
+    await callback.message.edit_text(
+        text=LEXICON[language_code]['choose_bank_prompt'],
         reply_markup=get_card_selection_keyboard(country_code, language_code)
     )
 
 @router.callback_query(DepositState.choosing_bank, F.data.startswith("select_card:"))
 async def select_card_and_return_to_hub(callback: types.CallbackQuery, state: FSMContext):
-    _, country_code, card_idx_str = callback.data.split(":")
-    card_idx = int(card_idx_str)
-    card_info = CARD_PAYMENT_DETAILS[country_code][card_idx]
+    try:
+        _, country_code, card_idx_str = callback.data.split(":")
+        card_idx = int(card_idx_str)
+        card_info = CARD_PAYMENT_DETAILS[country_code][card_idx]
+    except (ValueError, IndexError, KeyError):
+        await callback.answer("Карта недоступна.", show_alert=True)
+        return
     await state.update_data(card_info=card_info)
     await show_deposit_hub(callback, state)
 
@@ -84,7 +98,7 @@ async def back_to_country_selection(callback: types.CallbackQuery, state: FSMCon
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
     await state.set_state(DepositState.choosing_country)
-    await callback.message.edit_caption(
+    await callback.message.edit_text(
         lex.get('choose_country_prompt', 'choose_country_prompt'), 
         reply_markup=get_country_selection_keyboard(language_code)
     )

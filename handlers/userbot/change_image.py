@@ -13,13 +13,15 @@ router = Router()
 async def change_image_start(callback: types.CallbackQuery, state: FSMContext):
     container_id = int(callback.data.split(":")[1])
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
-    container = await db.get_container_by_id(container_id)
-    if not container: return
+    container = await db.get_container_for_actor(container_id, callback.from_user.id)
+    if not container:
+        await callback.answer("❌ Контейнер не найден или недоступен.", show_alert=True)
+        return
 
     await state.set_state(ChangeImageState.choosing_new_image)
     await state.update_data(container_id=container_id)
-    await callback.message.edit_caption(
-        caption=LEXICON[language_code]['change_image_prompt'], 
+    await callback.message.edit_text(
+        text=LEXICON[language_code]['change_image_prompt'],
         reply_markup=get_change_image_keyboard(language_code, container['image_id'])
     )
     await callback.answer()
@@ -31,6 +33,14 @@ async def change_image_select(callback: types.CallbackQuery, state: FSMContext):
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON.get(language_code, LEXICON['ru'])
 
+    data = await state.get_data()
+    container_id = data.get('container_id')
+    container = await db.get_container_for_actor(container_id, user_id) if container_id else None
+    if not container or new_image_id not in IMAGES:
+        await callback.answer("❌ Образ или контейнер недоступен.", show_alert=True)
+        await state.clear()
+        return
+
     new_image_name = IMAGES.get(new_image_id, {}).get('name', 'N/A')
 
     caption = lex.get('confirm_image_change_prompt').format(image_name=new_image_name)
@@ -38,8 +48,8 @@ async def change_image_select(callback: types.CallbackQuery, state: FSMContext):
 
     await state.update_data(new_image_id=new_image_id)
     await state.set_state(ChangeImageState.confirming_change)
-    await callback.message.edit_caption(
-        caption=caption, 
+    await callback.message.edit_text(
+        text=caption,
         reply_markup=get_simple_confirmation_keyboard(language_code, "confirm_image_change", "cancel_change")
     )
 
@@ -47,10 +57,11 @@ async def change_image_select(callback: types.CallbackQuery, state: FSMContext):
 async def change_image_confirm(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
     container_id, new_image_id = data['container_id'], data['new_image_id']
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(container_id, callback.from_user.id)
 
-    if not container:
-        await callback.answer("Ошибка", show_alert=True)
+    if not container or new_image_id not in IMAGES:
+        await callback.answer("❌ Контейнер или образ недоступен.", show_alert=True)
+        await state.clear()
         return
 
     user = callback.from_user
@@ -62,11 +73,11 @@ async def change_image_confirm(callback: types.CallbackQuery, state: FSMContext,
         container_id=container_id,
         server_id=container['server_id'],
         container_name=container['container_name'],
-        old_image_name=IMAGES[container['image_id']]['name'],
+        old_image_name=IMAGES.get(container['image_id'], {}).get('name', container['image_id']),
         new_image_id=new_image_id,
-        tariff_id=container['tariff_id'],
+        tariff_id=container['tariff_id'] if container['tariff_id'] in TARIFFS else 'basic',
         external_port=container['external_port']
     )
 
-    await callback.message.edit_caption(caption="⏳ <b>Смена образа запущена.</b>\nОжидайте уведомления.")
+    await callback.message.edit_text(text="⏳ <b>Смена образа запущена.</b>\nОжидайте уведомления.")
     await state.clear()

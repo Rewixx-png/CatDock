@@ -9,6 +9,7 @@ from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError, Teleg
 from utils import bot_state
 from lexicon import LEXICON
 import database as db
+from config import SUPPORT_URL
 from config import TOKEN, LOG_CHAT_ID
 
 async def handle_errors(event: ErrorEvent, bot: Bot):
@@ -61,7 +62,7 @@ async def handle_errors(event: ErrorEvent, bot: Bot):
             )
 
             markup = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🆘 Связаться с поддержкой", url="https://t.me/catdock_support")
+                InlineKeyboardButton(text="🆘 Связаться с поддержкой", url=SUPPORT_URL)
             ]])
 
             if update.callback_query:

@@ -3,10 +3,7 @@ from .common_keyboards import (
     get_misc_menu_keyboard,
     get_language_selection_keyboard,
     get_simple_confirmation_keyboard,
-    get_server_status_keyboard,
     get_cancel_keyboard,
-    get_admin_deposit_keyboard,
-    get_admin_withdrawal_keyboard,
     get_initial_start_keyboard
 )
 
@@ -27,8 +24,6 @@ from .admin import (
     get_orphaned_containers_keyboard,
     get_user_management_keyboard,
     get_role_selection_keyboard,
-    get_admin_ticket_keyboard,
-    get_admin_answer_confirm_keyboard,
     get_server_management_keyboard,
     get_server_edit_list_keyboard,
     get_server_edit_details_keyboard,
@@ -57,11 +52,9 @@ from .profile_keyboards import (
     get_card_selection_keyboard,
     get_card_payment_confirmation_keyboard,
     get_referral_menu_keyboard,
-    get_bonus_container_selection_keyboard,
     get_deposit_hub_keyboard,
     get_settings_menu_keyboard,
-    get_profile_settings_keyboard,
-    get_ticket_rating_keyboard
+    get_profile_settings_keyboard
 )
 
 from .userbot import (
@@ -82,6 +75,5 @@ from .userbot import (
     get_image_selection_for_hub,
     get_manual_server_selection_keyboard,
     get_cpu_upgrade_keyboard,
-    get_ram_upgrade_keyboard,
     get_confirmation_keyboard
 )

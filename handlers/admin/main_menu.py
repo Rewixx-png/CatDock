@@ -23,7 +23,7 @@ from utils import bot_state
 from utils.filters import IsAdmin
 from roles import UserRole
 from utils.action_logger import log_action
-from config import WEB_APP_URL
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.message.filter(IsAdmin(min_level=UserRole.ADMIN))
@@ -106,10 +106,8 @@ async def show_marketing_menu(callback: types.CallbackQuery):
     language_code = await db.get_user_language(user_id) or 'ru'
 
     text = (
-        "📢 <b>Маркетинг и Коммуникации</b>\n\n"
-        "• Рассылки по всем юзерам\n"
-        "• Новости в канал\n"
-        "• Промокоды и акции"
+        "📢 <b>Рассылки</b>\n\n"
+        "Отправка служебных сообщений всем пользователям CatDock."
     )
     markup = await get_admin_marketing_menu(user_id, language_code)
     await send_admin_panel_menu(callback, text, markup)
@@ -117,14 +115,16 @@ async def show_marketing_menu(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == "admin_support_menu")
 async def open_support_web(callback: types.CallbackQuery):
-    support_url = f"{WEB_APP_URL}/admin/support"
-
     from aiogram.utils.keyboard import InlineKeyboardBuilder
     builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(text="📨 Открыть панель тикетов", url=support_url))
     builder.row(types.InlineKeyboardButton(text="⬅️ Назад", callback_data="admin_panel"))
 
-    await send_admin_panel_menu(callback, "📨 <b>Поддержка</b>\n\nДля работы с тикетами используйте веб-интерфейс. Он поддерживает real-time чат.", builder.as_markup())
+    await send_admin_panel_menu(
+        callback,
+        "📨 <b>Поддержка</b>\n\nВеб-панель тикетов удалена из CatDock. "
+        "Для связи используются настроенные Telegram-каналы поддержки.",
+        builder.as_markup(),
+    )
     await callback.answer()
 
 @router.message(Command("restart"), IsAdmin(min_level=UserRole.CO_OWNER))
@@ -156,7 +156,8 @@ async def confirm_restart_bot(callback: types.CallbackQuery):
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[language_code]
     confirmation_text = lex.get('restart_confirmation_text', "⚠️ Вы уверены, что хотите перезапустить бота? Текущее соединение будет разорвано.")
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=confirmation_text,
         reply_markup=get_simple_confirmation_keyboard(language_code, "admin_restart_do", "bot_settings")
     )

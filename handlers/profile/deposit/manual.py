@@ -29,6 +29,10 @@ async def card_payment_confirmed(callback: types.CallbackQuery, state: FSMContex
 
     details = {'bank_name': 'Unknown (Bot)', 'method_details': card_bank}
     request_id = await db.create_payment_request(user.id, float(amount), 'card', details)
+    if request_id is None:
+        await callback.message.edit_text("❌ Не удалось создать заявку. Попробуйте позже.")
+        await state.clear()
+        return
 
     user_link = hlink(user.full_name, f"tg://user?id={user.id}")
     username = f"@{user.username}" if user.username else "Без юзернейма"
@@ -58,11 +62,7 @@ async def card_payment_confirmed(callback: types.CallbackQuery, state: FSMContex
     await state.clear()
 
 @router.callback_query(F.data == "payment_confirmed", DepositState.waiting_for_bank_name)
-async def sbp_payment_confirmed(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
-    user = callback.from_user
-    data = await state.get_data()
-    amount = data.get("amount")
-
+async def sbp_payment_confirmed(callback: types.CallbackQuery, state: FSMContext):
     user_id = callback.from_user.id
     language_code = await db.get_user_language(user_id) or 'ru'
     msg = await callback.message.edit_text(
@@ -93,6 +93,10 @@ async def process_bank_name(message: types.Message, state: FSMContext, bot: Bot)
 
     details = {'bank_name': bank_name}
     request_id = await db.create_payment_request(user.id, float(amount), 'sbp', details)
+    if request_id is None:
+        await message.answer("❌ Не удалось создать заявку. Попробуйте позже.")
+        await state.clear()
+        return
 
     asyncio.create_task(
         log_action(bot, user, f"создал заявку на пополнение на {amount} RUB через СБП (банк: {bank_name})")

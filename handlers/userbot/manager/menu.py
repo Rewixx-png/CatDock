@@ -28,13 +28,13 @@ async def manage_bot_entry(callback: types.CallbackQuery, state: FSMContext, bot
 
 @router.callback_query(F.data == "cancel_change")
 async def cancel_change_handler(callback: types.CallbackQuery, state: FSMContext):
-    await state.clear()
     data = await state.get_data()
+    await state.clear()
     container_id = data.get('container_id')
 
     if container_id:
         user_role = await db.get_user_role(callback.from_user.id)
-        container = await db.get_container_by_id(container_id)
+        container = await db.get_container_for_actor(container_id, callback.from_user.id)
         if not container:
             await send_userbots_menu(callback, state)
         else:

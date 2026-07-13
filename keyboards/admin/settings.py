@@ -22,7 +22,7 @@ def get_broadcast_confirmation_keyboard(language_code: str = 'ru') -> types.Inli
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(
         text=lex.get('confirm_broadcast_button', 'Confirm Broadcast'),
-        callback_data="confirm_broadcast"
+        callback_data="confirm_send_broadcast"
     ))
     builder.row(types.InlineKeyboardButton(
         text=lex.get('cancel_button', 'Cancel'),

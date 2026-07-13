@@ -58,8 +58,8 @@ async def show_profile_settings_menu(callback: types.CallbackQuery, state: FSMCo
 @router.callback_query(F.data == "settings_menu")
 async def show_settings_menu_handler(callback: types.CallbackQuery):
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
-    await callback.message.edit_caption(
-        caption="⚙️ <b>Настройки</b>",
+    await callback.message.edit_text(
+        text="⚙️ <b>Настройки</b>",
         reply_markup=get_settings_menu_keyboard(language_code)
     )
     await callback.answer()

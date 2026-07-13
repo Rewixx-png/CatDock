@@ -119,6 +119,12 @@ async def cmd_scan_sessions(message: types.Message, state: FSMContext):
 
     await status_msg.edit_text(report, reply_markup=builder.as_markup())
 
+
+@router.callback_query(F.data == "admin_scan_sessions")
+async def scan_sessions_callback(callback: types.CallbackQuery, state: FSMContext):
+    await callback.answer("Запускаю сканирование")
+    await cmd_scan_sessions(callback.message, state)
+
 @router.callback_query(AdminSessionScanState.confirming_delete, F.data == "admin_delete_sessions_confirm")
 async def confirm_deletion(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()

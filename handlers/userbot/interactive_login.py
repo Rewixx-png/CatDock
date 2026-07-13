@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import shlex
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
@@ -10,7 +11,6 @@ import database as db
 from states.user_states import InteractiveLoginState
 from keyboards import get_cancel_keyboard
 from utils.ssh_runner import create_interactive_process
-from config import IMAGES
 
 router = Router()
 
@@ -125,7 +125,7 @@ async def start_interactive_login(callback: types.CallbackQuery, state: FSMConte
         return
 
     container_id = int(callback.data.split(":")[1])
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(container_id, user_id)
 
     if not container:
         await callback.answer("❌ Контейнер не найден.", show_alert=True)
@@ -135,7 +135,10 @@ async def start_interactive_login(callback: types.CallbackQuery, state: FSMConte
     if container['image_id'] == 'legacy':
         module_name = 'legacy' 
 
-    command_str = f"docker exec -i {container['container_name']} python3 -m {module_name} --root --no-web"
+    command_str = (
+        f"docker exec -i {shlex.quote(container['container_name'])} "
+        f"python3 -m {shlex.quote(module_name)} --root --no-web"
+    )
 
     try:
         await callback.message.delete()

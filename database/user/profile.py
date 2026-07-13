@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from ..core import get_db
 from roles import DEFAULT_ROLE, UserRole
+from config import ADMIN_LEVELS
 from utils import bot_state
 
 def _clear_user_cache(user_id: int):
@@ -124,6 +125,11 @@ async def get_user_role(user_id: int) -> UserRole:
     if user_id in bot_state.user_role_cache:
         return bot_state.user_role_cache[user_id]
 
+    config_role = UserRole.PARTICIPANT
+    for role, configured_ids in ADMIN_LEVELS.items():
+        if user_id in configured_ids and role > config_role:
+            config_role = role
+
     try:
         pool = await get_db()
         async with pool.acquire() as conn:
@@ -140,11 +146,12 @@ async def get_user_role(user_id: int) -> UserRole:
                             pass 
                 except (ValueError, TypeError):
                     pass
-            bot_state.user_role_cache[user_id] = role
-            return role
+            effective_role = max(role, config_role)
+            bot_state.user_role_cache[user_id] = effective_role
+            return effective_role
     except Exception as e:
         logging.error(f"DB Error get_user_role: {e}")
-        return UserRole.PARTICIPANT
+        return config_role
 
 async def get_user_balance(user_id: int) -> float:
     profile = await get_user_profile(user_id)
@@ -156,6 +163,37 @@ async def update_user_balance(user_id: int, amount: float):
         await conn.execute("UPDATE users SET balance = balance + $1 WHERE user_id = $2", amount, user_id)
 
     _clear_user_cache(user_id)
+
+
+async def add_cashback_to_balance(user_id: int, purchase_amount: float) -> float:
+    """Credit the user's configured cashback and return the credited amount."""
+    if purchase_amount <= 0:
+        return 0.0
+
+    try:
+        pool = await get_db()
+        async with pool.acquire() as conn:
+            cashback_percent = await conn.fetchval(
+                "SELECT COALESCE(cashback_percent, 0) FROM users WHERE user_id = $1",
+                user_id,
+            )
+            if cashback_percent is None:
+                return 0.0
+
+            cashback = round(float(purchase_amount) * float(cashback_percent) / 100.0, 2)
+            if cashback <= 0:
+                return 0.0
+
+            await conn.execute(
+                "UPDATE users SET balance = balance + $1 WHERE user_id = $2",
+                cashback,
+                user_id,
+            )
+        _clear_user_cache(user_id)
+        return cashback
+    except Exception as e:
+        logging.error(f"DB Error add_cashback_to_balance: {e}")
+        return 0.0
 
 async def try_deduct_user_balance(user_id: int, amount: float) -> bool:
     if amount < 0: amount = abs(amount)

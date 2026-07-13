@@ -187,6 +187,12 @@ async def force_backup_command(message: types.Message, bot: Bot):
     except Exception as e:
         await message.answer(f"❌ Произошла ошибка при запуске бэкапа: {e}")
 
+
+@router.callback_query(F.data == "admin_force_backup", IsAdmin(min_level=UserRole.CO_OWNER))
+async def force_backup_callback(callback: types.CallbackQuery, bot: Bot):
+    await callback.answer("Запускаю резервное копирование")
+    await force_backup_command(callback.message, bot)
+
 @router.message(Command("zombie"), IsAdmin(min_level=UserRole.CO_OWNER))
 async def force_zombie_cleaner(message: types.Message, bot: Bot):
     from utils.jobs import clean_zombies_globally
@@ -201,3 +207,9 @@ async def force_zombie_cleaner(message: types.Message, bot: Bot):
         await message.answer("✅ <b>Зачистка завершена.</b>\nЕсли были ошибки, они отправлены в канал логов.")
     except Exception as e:
         await message.answer(f"❌ Ошибка при запуске: {e}")
+
+
+@router.callback_query(F.data == "admin_force_zombie", IsAdmin(min_level=UserRole.CO_OWNER))
+async def force_zombie_cleaner_callback(callback: types.CallbackQuery, bot: Bot):
+    await callback.answer("Запускаю проверку контейнеров")
+    await force_zombie_cleaner(callback.message, bot)

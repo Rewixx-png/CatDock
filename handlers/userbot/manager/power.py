@@ -1,5 +1,3 @@
-import logging
-import asyncio
 from aiogram import Router, types, F, Bot
 from aiogram.fsm.context import FSMContext
 
@@ -7,9 +5,7 @@ import database as db
 import utils.docker as dm
 from lexicon import LEXICON
 from roles import UserRole
-from utils.action_logger import log_action
 from handlers.common.menu_utils import show_management_menu
-from .list import send_userbots_menu
 
 from utils.worker_tasks import task_container_power_action
 
@@ -27,21 +23,19 @@ async def handle_simple_action(
     user_lang = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[user_lang]
 
-    ui_action_name = lex.get(ui_action_key, log_action_ru)
-
-    await callback.answer(f"⏳ Задача принята: {ui_action_name}", show_alert=False)
-
-    data = await state.get_data()
     try:
-        container_id = data.get('container_id') or int(callback.data.split(":")[1])
+        container_id = int(callback.data.split(":")[1])
     except (IndexError, ValueError):
         await callback.answer("Ошибка данных.", show_alert=True)
         return
 
-    container = await db.get_container_by_id(container_id)
+    container = await db.get_container_for_actor(container_id, callback.from_user.id)
     if not container:
-        await send_userbots_menu(callback, state, send_new=True)
+        await callback.answer("❌ Контейнер не найден или недоступен.", show_alert=True)
         return
+
+    ui_action_name = lex.get(ui_action_key, log_action_ru)
+    await callback.answer(f"⏳ Задача принята: {ui_action_name}", show_alert=False)
 
     if container.get('is_blocked'):
         await callback.answer("❌ Контейнер заблокирован администратором.", show_alert=True)
@@ -80,13 +74,14 @@ async def restart_bot_handler(callback: types.CallbackQuery, state: FSMContext, 
 
 @router.callback_query(F.data.startswith("freeze_bot:"))
 async def freeze_bot_handler(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
-    data = await state.get_data()
     try:
-        container_id = data.get('container_id') or int(callback.data.split(":")[1])
+        container_id = int(callback.data.split(":")[1])
     except (IndexError, ValueError): return
 
-    container = await db.get_container_by_id(container_id)
-    if container and container.get('is_blocked'): return
+    container = await db.get_container_for_actor(container_id, callback.from_user.id)
+    if not container or container.get('is_blocked'):
+        await callback.answer("❌ Контейнер недоступен.", show_alert=True)
+        return
 
     await db.set_container_frozen_state(container_id, True)
     if container:
@@ -101,13 +96,14 @@ async def freeze_bot_handler(callback: types.CallbackQuery, state: FSMContext, b
 
 @router.callback_query(F.data.startswith("unfreeze_bot:"))
 async def unfreeze_bot_handler(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
-    data = await state.get_data()
     try:
-        container_id = data.get('container_id') or int(callback.data.split(":")[1])
+        container_id = int(callback.data.split(":")[1])
     except (IndexError, ValueError): return
 
-    container = await db.get_container_by_id(container_id)
-    if not container or container.get('is_blocked'): return
+    container = await db.get_container_for_actor(container_id, callback.from_user.id)
+    if not container or container.get('is_blocked'):
+        await callback.answer("❌ Контейнер недоступен.", show_alert=True)
+        return
 
     await db.set_container_frozen_state(container_id, False)
 

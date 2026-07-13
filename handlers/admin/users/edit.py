@@ -13,6 +13,7 @@ from utils import bot_state
 from utils.action_logger import log_action
 from handlers.common.base.main_flow import send_main_menu as send_user_main_menu
 from .profile import show_user_profile
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.message.filter(IsAdmin(min_level=UserRole.ADMIN))
@@ -67,7 +68,8 @@ async def admin_change_role_start(callback: types.CallbackQuery, state: FSMConte
 
     await state.set_state(AdminUserState.changing_role)
     markup = await get_role_selection_keyboard(target_user_id, admin_role, language_code)
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=lex.get('change_role_prompt'),
         reply_markup=markup
     )

@@ -38,6 +38,9 @@ async def change_lang_menu(callback: types.CallbackQuery):
 @router.callback_query(F.data.startswith("set_lang:"))
 async def set_user_lang(callback: types.CallbackQuery, state: FSMContext, bot: Bot):
     lang_code = callback.data.split(":")[1]
+    if lang_code not in LEXICON:
+        await callback.answer("Unsupported language", show_alert=True)
+        return
     user_id = callback.from_user.id
     await db.set_user_language(user_id, lang_code)
     await log_action(bot, callback.from_user, f"сменил язык на '{lang_code.upper()}'")
@@ -54,5 +57,5 @@ async def set_user_lang(callback: types.CallbackQuery, state: FSMContext, bot: B
         await state.set_state(SupportState.waiting_for_question)
         return
 
-    await send_main_menu(callback, state) 
+    await send_main_menu(callback, state, is_new_user=bool(data.get('is_new_user')))
     await callback.answer()

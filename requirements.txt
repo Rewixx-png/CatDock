@@ -16,6 +16,7 @@ cryptography
 psutil
 pytest
 pytest-asyncio
+pytest-mock
 requests
 qrcode
 Pillow
@@ -28,4 +29,5 @@ psycopg2-binary
 sentry-sdk
 taskiq
 taskiq-redis
-soundcloud-v2
+telethon
+PyYAML

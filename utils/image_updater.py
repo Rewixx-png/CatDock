@@ -5,11 +5,11 @@ import os
 from .ssh_runner import run_command_on_server
 from config import IMAGES
 from utils import bot_state
+import settings
 
-ASSETS_BASE_URL = "https://raw.githubusercontent.com/Rewixx-png/cat-host-assets/main/docker"
+ASSETS_BASE_URL = settings.DOCKER_ASSETS_BASE_URL.rstrip('/')
 
 GIT_REPOS = {
-    'rewheroku': 'https://github.com/Rewixx-png/RewHeroku',
     'heroku': 'https://github.com/coddrago/Heroku',
     'hikka': 'https://github.com/beveiled/hikka',
     'foxuserbot': 'https://github.com/FoxUserbot/FoxUserbot',
@@ -17,7 +17,6 @@ GIT_REPOS = {
 }
 
 CLONE_FOLDERS = {
-    'rewheroku': 'rewheroku_src',
     'heroku': 'heroku_src',
     'hikka': 'hikka_src',
     'foxuserbot': 'foxuserbot_src',
@@ -25,7 +24,6 @@ CLONE_FOLDERS = {
 }
 
 ASSET_FOLDERS = {
-    'rewheroku': 'RewHeroku',
     'heroku': 'Heroku',
     'hikka': 'Hikka',
     'foxuserbot': 'FoxUserbot',
@@ -37,6 +35,9 @@ async def update_docker_image_from_git(
     image_id: str, 
     progress_callback: typing.Callable
 ) -> tuple[bool, str]:
+
+    if not ASSETS_BASE_URL:
+        return False, "DOCKER_ASSETS_BASE_URL не настроен."
 
     if image_id not in GIT_REPOS:
         return False, f"Image_id '{image_id}' не настроен."

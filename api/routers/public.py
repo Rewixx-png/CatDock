@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from aiogram import Bot
 from pydantic import BaseModel
 
-from config import get_bot_username, get_version, TOKEN, TARIFFS, IMAGES, PROJECT_ROOT, WEB_APP_URL
+from config import get_bot_username, get_version, TOKEN, TARIFFS, IMAGES, SERVERS, PROJECT_ROOT, WEB_APP_URL
 from database.user.api_tokens import create_api_token
 import database as db
 import utils.docker as dm
@@ -145,18 +145,46 @@ async def handle_telegram_auth(request: Request):
 @router.get("/verify-free-request/{token}", response_model=VerifyResponse)
 async def verify_free_request(token: str, request: Request):
     bot_username = await asyncio.to_thread(get_bot_username)
+    container_name = None
+    user_id = None
     try:
-        token_data = await db.get_user_by_verification_token(token)
-        if not token_data: return {"status": "error", "message": "Ссылка недействительна.", "bot_username": bot_username}
+        token_data, reserve_status = await db.reserve_free_verification_token(token)
+        if reserve_status == 'already_exists':
+            return {"status": "success", "message": "У вас уже есть контейнер.", "bot_username": bot_username}
+        if not token_data:
+            return {"status": "error", "message": "Ссылка недействительна или Free уже использован.", "bot_username": bot_username}
+
         user_id = token_data['user_id']
-        if await db.get_user_containers(user_id):
-             await db.consume_verification_token(token)
-             return {"status": "success", "message": "У вас уже есть контейнер.", "bot_username": bot_username}
-        container_name, app_port, login_url = await dm.create_container(user_id, token_data['username'], token_data['server_id'], TARIFFS[token_data['tariff_id']], IMAGES[token_data['image_id']])
+        server_id = token_data['server_id']
+        tariff_id = token_data['tariff_id']
+        image_id = token_data['image_id']
+        if server_id not in SERVERS or tariff_id != 'free' or image_id not in IMAGES:
+            await db.release_free_verification_token(token, user_id)
+            raise HTTPException(status_code=400, detail="Invalid verification parameters")
+
+        container_name, app_port, login_url = await dm.create_container(
+            user_id,
+            token_data['username'],
+            server_id,
+            TARIFFS[tariff_id],
+            IMAGES[image_id],
+        )
         if not container_name: raise Exception("Docker Error")
-        await db.add_user_container(user_id, token_data['server_id'], container_name, token_data['image_id'], token_data['tariff_id'], app_port, login_url)
-        await db.consume_verification_token(token)
-        await db.mark_free_tariff_as_used(user_id)
-        await db.set_user_verified_ip(user_id, request.headers.get('x-forwarded-for', request.client.host))
+        await db.add_user_container(user_id, server_id, container_name, image_id, tariff_id, app_port, login_url)
+        client_host = request.client.host if request.client else "unknown"
+        await db.set_user_verified_ip(user_id, request.headers.get('x-forwarded-for', client_host))
         return {"status": "success", "message": f"UserBot '{container_name}' создан!", "bot_username": bot_username}
-    except Exception: raise HTTPException(status_code=500, detail="Verification failed")
+    except HTTPException:
+        raise
+    except Exception:
+        if container_name and user_id is not None:
+            try:
+                token_data = token_data if 'token_data' in locals() else None
+                if token_data:
+                    await dm.delete_container(token_data['server_id'], container_name)
+            except Exception:
+                pass
+        if user_id is not None:
+            await db.release_free_verification_token(token, user_id)
+        logging.exception("Free verification failed")
+        raise HTTPException(status_code=500, detail="Verification failed")

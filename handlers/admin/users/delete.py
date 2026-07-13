@@ -12,6 +12,7 @@ from utils.action_logger import log_action
 import utils.docker as dm
 from .list import get_users_page
 from ..main_menu import admin_dashboard as admin_main_menu 
+from utils.ui_utils import safe_edit_caption
 
 router = Router()
 router.message.filter(IsAdmin(min_level=UserRole.SENIOR_ADMIN))
@@ -43,7 +44,8 @@ async def admin_delete_user_start(callback: types.CallbackQuery, state: FSMConte
 
     confirm_text = lex.get('delete_user_confirm_text', "Вы уверены?").format(name=user_name, id=target_user_id)
 
-    await callback.message.edit_caption(
+    await safe_edit_caption(
+        callback.message,
         caption=confirm_text,
         reply_markup=get_delete_user_confirmation_keyboard(language_code, target_user_id)
     )
@@ -61,7 +63,7 @@ async def admin_confirm_delete_user(callback: types.CallbackQuery, state: FSMCon
     language_code = await db.get_user_language(callback.from_user.id) or 'ru'
     lex = LEXICON[language_code]
 
-    await callback.message.edit_caption(caption="⏳ Выполняется удаление контейнеров и данных пользователя...")
+    await safe_edit_caption(callback.message, caption="⏳ Выполняется удаление контейнеров и данных пользователя...")
 
     try:
         containers = await db.get_user_containers(target_user_id)
@@ -83,7 +85,7 @@ async def admin_confirm_delete_user(callback: types.CallbackQuery, state: FSMCon
 
     except Exception as e:
         logging.critical(f"Ошибка при полном удалении пользователя {target_user_id} через бота: {e}", exc_info=True)
-        await callback.message.edit_caption(caption=f"❌ Произошла ошибка при удалении: {e}")
+        await safe_edit_caption(callback.message, caption=f"❌ Произошла ошибка при удалении: {e}")
 
 @router.callback_query(AdminUserState.confirming_deletion, F.data.startswith("admin_select_user:"))
 async def cancel_delete_user(callback: types.CallbackQuery, state: FSMContext):
