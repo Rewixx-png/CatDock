@@ -38,7 +38,7 @@ def get_creation_hub_keyboard(language_code: str, selection_data: dict) -> Inlin
     else:
         builder.row(types.InlineKeyboardButton(text=lex.get('hub_not_ready', "⏳ Выберите параметры"), callback_data="create_hub:incomplete"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_main_menu_button'], callback_data="back_to_main_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_main_menu_button', 'back_to_main_menu_button'), callback_data="back_to_main_menu"))
     return builder.as_markup()
 
 async def get_tariff_selection_for_hub(language_code: str, user_id: int) -> InlineKeyboardMarkup:
@@ -59,7 +59,7 @@ async def get_tariff_selection_for_hub(language_code: str, user_id: int) -> Inli
             builder.add(types.InlineKeyboardButton(text=f"⚡ {name} | {ram}MB | {price_text}", callback_data=f"create_set:tariff:{tariff_id}"))
             
     builder.adjust(1)
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="create_hub:back"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="create_hub:back"))
     return builder.as_markup()
 
 def get_image_selection_for_hub(language_code: str) -> InlineKeyboardMarkup:
@@ -69,7 +69,7 @@ def get_image_selection_for_hub(language_code: str) -> InlineKeyboardMarkup:
         
         builder.add(types.InlineKeyboardButton(text=f"{image_info['name']}", callback_data=f"create_set:image:{image_id}"))
     builder.adjust(1)
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="create_hub:back"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="create_hub:back"))
     return builder.as_markup()
 
 async def get_manual_server_selection_keyboard(language_code: str, user_id: int) -> InlineKeyboardMarkup:
@@ -93,7 +93,7 @@ async def get_manual_server_selection_keyboard(language_code: str, user_id: int)
         clean_name = server_info['name']
         builder.row(types.InlineKeyboardButton(text=f"{clean_name}", callback_data=f"set_manual_server:{server_id}"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="create_hub:back"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="create_hub:back"))
     return builder.as_markup()
 
 def get_confirmation_keyboard(language_code: str) -> InlineKeyboardMarkup:
@@ -104,7 +104,7 @@ def get_confirmation_keyboard(language_code: str) -> InlineKeyboardMarkup:
     )
     builder.row(
         types.InlineKeyboardButton(text=lex.get('hub_manual_server', '✏️ Изменить'), callback_data="create_hub:back"),
-        types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="back_to_main_menu")
+        types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="back_to_main_menu")
     )
     return builder.as_markup()
 
@@ -117,7 +117,7 @@ def get_server_selection_keyboard(language_code: str, ram_usages: dict) -> Inlin
         status_icon = '🟢' if usage and usage < 90 else '🔴'
         text = f"{status_icon} {server_info['name']} ({usage}%)"
         builder.row(types.InlineKeyboardButton(text=text, callback_data=f"select_server:{server_id}"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 async def get_tariff_selection_keyboard(server_id: str, user_id: int, language_code: str, discount_percent: int = 0) -> InlineKeyboardMarkup:
@@ -126,7 +126,7 @@ async def get_tariff_selection_keyboard(server_id: str, user_id: int, language_c
     for tariff_id, tariff_info in TARIFFS.items():
         if tariff_id == 'free': continue
         builder.row(types.InlineKeyboardButton(text=f"{tariff_info['name']}", callback_data=f"select_tariff:{tariff_id}"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 def get_image_selection_keyboard(language_code: str) -> InlineKeyboardMarkup:
@@ -134,5 +134,5 @@ def get_image_selection_keyboard(language_code: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     for image_id, image_info in IMAGES.items():
         builder.row(types.InlineKeyboardButton(text=f"{image_info['name']}", callback_data=f"select_image:{image_id}"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="admin_panel"))
     return builder.as_markup()

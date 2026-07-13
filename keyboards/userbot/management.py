@@ -19,7 +19,7 @@ async def get_my_userbots_keyboard(containers: list, language_code: str) -> Inli
             image_name = IMAGES.get(container['image_id'], {}).get('name', 'N/A')
             text = f"{icon_prefix}{server_name} - {image_name} ({container['container_name']})"
             builder.row(types.InlineKeyboardButton(text=text, callback_data=f"manage_bot:{container['id']}"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_main_menu_button'], callback_data="back_to_main_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_main_menu_button', 'back_to_main_menu_button'), callback_data="back_to_main_menu"))
     return builder.as_markup()
 
 def get_orphaned_container_management_keyboard(
@@ -35,7 +35,7 @@ def get_orphaned_container_management_keyboard(
         builder.row(types.InlineKeyboardButton(text=lex.get('admin_change_server_button', "⇄ Сменить сервер (Админ)"), callback_data=f"admin_change_server_start:{container_id}"))
         builder.row(types.InlineKeyboardButton(text=lex.get('change_time_button', '⏳ Изменить время'), callback_data=f"admin_change_time_start:{container_id}"))
     else:
-        builder.row(types.InlineKeyboardButton(text=lex['change_server_button'], callback_data=f"change_server_start:{container_id}"))
+        builder.row(types.InlineKeyboardButton(text=lex.get('change_server_button', 'change_server_button'), callback_data=f"change_server_start:{container_id}"))
 
     if is_admin_view:
         if admin_back_callback:
@@ -129,13 +129,13 @@ async def get_container_management_keyboard(
 
     builder.row(
         types.InlineKeyboardButton(text=lex.get('change_name_button', "📝 Сменить имя"), callback_data=f"change_name_start:{container_id}"),
-        types.InlineKeyboardButton(text=lex['change_image_button'], callback_data=f"change_image_start:{container_id}")
+        types.InlineKeyboardButton(text=lex.get('change_image_button', 'change_image_button'), callback_data=f"change_image_start:{container_id}")
     )
 
     if not is_admin_view:
-        builder.row(types.InlineKeyboardButton(text=lex['change_server_button'], callback_data=f"change_server_start:{container_id}"))
+        builder.row(types.InlineKeyboardButton(text=lex.get('change_server_button', 'change_server_button'), callback_data=f"change_server_start:{container_id}"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['reinstall_button'], callback_data=f"reinstall_bot_start:{container_id}"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('reinstall_button', 'reinstall_button'), callback_data=f"reinstall_bot_start:{container_id}"))
 
     if not is_frozen and not is_blocked and container_info.get('tariff_id') != 'free':
         builder.row(types.InlineKeyboardButton(text=lex.get('transfer_bot_button', "🎁 Передать контейнер"), callback_data=f"transfer_bot_start:{container_id}"))

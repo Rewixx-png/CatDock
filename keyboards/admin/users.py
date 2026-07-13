@@ -45,7 +45,7 @@ def get_delete_user_confirmation_keyboard(language_code: str = 'ru', target_user
         callback_data="admin_confirm_delete_user"
     ))
     builder.row(types.InlineKeyboardButton(
-        text=lex['cancel_button'], 
+        text=lex.get('cancel_button', 'cancel_button'), 
         callback_data=f"admin_select_user:{target_user_id}"
     ))
     return builder.as_markup()
@@ -67,7 +67,7 @@ async def get_role_selection_keyboard(target_user_id: int, admin_role: UserRole,
             )
         )
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data=f"admin_select_user:{target_user_id}"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data=f"admin_select_user:{target_user_id}"))
     return builder.as_markup()
 
 def get_user_list_keyboard(users: list, page: int, total_pages: int, language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -87,7 +87,7 @@ def get_user_list_keyboard(users: list, page: int, total_pages: int, language_co
         builder.row(*nav_buttons)
 
     builder.row(types.InlineKeyboardButton(text=lex.get('search_by_id_button', "🔍 Найти по ID/Username"), callback_data="admin_search_user"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 def get_rinfo_main_keyboard(target_user_id: int, language_code: str = 'ru') -> InlineKeyboardMarkup:

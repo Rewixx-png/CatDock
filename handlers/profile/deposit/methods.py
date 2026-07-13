@@ -50,7 +50,7 @@ async def select_deposit_category(callback: types.CallbackQuery, state: FSMConte
 
     elif category == "country_bank":
         await state.set_state(DepositState.choosing_country)
-        await callback.message.edit_caption(lex['choose_country_prompt'], reply_markup=get_country_selection_keyboard(language_code))
+        await callback.message.edit_caption(lex.get('choose_country_prompt', 'choose_country_prompt'), reply_markup=get_country_selection_keyboard(language_code))
 
     await callback.answer()
 
@@ -85,7 +85,7 @@ async def back_to_country_selection(callback: types.CallbackQuery, state: FSMCon
     lex = LEXICON[language_code]
     await state.set_state(DepositState.choosing_country)
     await callback.message.edit_caption(
-        lex['choose_country_prompt'], 
+        lex.get('choose_country_prompt', 'choose_country_prompt'), 
         reply_markup=get_country_selection_keyboard(language_code)
     )
     await callback.answer()

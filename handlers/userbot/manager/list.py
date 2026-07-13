@@ -17,7 +17,7 @@ async def send_userbots_menu(callback: types.CallbackQuery, state: FSMContext, s
     language_code = await db.get_user_language(user_id) or 'ru'
     lex = LEXICON[language_code]
     containers = await db.get_user_containers(user_id)
-    text = lex['my_userbots_title'] + "\n\n" + (lex['my_userbots_no_bots'] if not containers else lex['my_userbots_select_bot'])
+    text = lex.get('my_userbots_title', 'my_userbots_title') + "\n\n" + (lex.get('my_userbots_no_bots', 'my_userbots_no_bots') if not containers else lex.get('my_userbots_select_bot', 'my_userbots_select_bot'))
 
     markup = await get_my_userbots_keyboard(containers, language_code)
 

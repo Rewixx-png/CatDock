@@ -8,9 +8,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from config import TOKEN, REDIS_HOST, REDIS_PORT, REDIS_DB
 
 redis_client = Redis(
-    host=REDIS_HOST, 
-    port=REDIS_PORT, 
-    db=REDIS_DB
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    db=REDIS_DB,
+    socket_connect_timeout=5,
+    socket_timeout=5
 )
 
 storage = RedisStorage(

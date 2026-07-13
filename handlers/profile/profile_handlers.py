@@ -82,7 +82,7 @@ async def show_profile_menu(callback: types.CallbackQuery, state: FSMContext, bo
         user_profile['username'] = user_profile.get('username') or '—'
 
         try:
-            profile_text = lex['profile_text'].format(**user_profile)
+            profile_text = lex.get('profile_text', 'profile_text').format(**user_profile)
         except KeyError as e:
             logging.error(f"Ошибка форматирования профиля: отсутствует ключ {e}")
             profile_text = "Ошибка отображения профиля. Пожалуйста, сообщите администратору."
@@ -151,11 +151,11 @@ async def show_referral_menu(callback: types.CallbackQuery, bot: Bot):
     stats = await db.get_referral_stats(user_id)
 
     if stats['referrer_name']:
-        referrer_info = lex['referrer_info_who'].format(referrer_name=stats['referrer_name'])
+        referrer_info = lex.get('referrer_info_who', 'referrer_info_who').format(referrer_name=stats['referrer_name'])
     else:
-        referrer_info = lex['referrer_info_self']
+        referrer_info = lex.get('referrer_info_self', 'referrer_info_self')
 
-    text = lex['referral_text'].format(
+    text = lex.get('referral_text', 'referral_text').format(
         ref_percent=int(current_percent * 100),
         ref_link=referral_link,
         ref_count=stats['count'],

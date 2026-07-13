@@ -10,20 +10,20 @@ def get_profile_keyboard(language_code: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['deposit_button'], callback_data="add_balance"),
-        types.InlineKeyboardButton(text=lex['withdraw_button'], callback_data="withdraw")
+        types.InlineKeyboardButton(text=lex.get('deposit_button', 'deposit_button'), callback_data="add_balance"),
+        types.InlineKeyboardButton(text=lex.get('withdraw_button', 'withdraw_button'), callback_data="withdraw")
     )
 
     builder.row(
         
-        types.InlineKeyboardButton(text=lex['ref_system_button'], callback_data="ref_system")
+        types.InlineKeyboardButton(text=lex.get('ref_system_button', 'ref_system_button'), callback_data="ref_system")
     )
 
     builder.row(
         types.InlineKeyboardButton(text=lex.get('string_session_button', '📝 Сессии'), callback_data="string_session_menu")
     )
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_main_menu_button'], callback_data="back_to_main_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_main_menu_button', 'back_to_main_menu_button'), callback_data="back_to_main_menu"))
     return builder.as_markup()
 
 def get_deposit_hub_keyboard(language_code: str, selection_data: dict) -> InlineKeyboardMarkup:
@@ -46,7 +46,7 @@ def get_deposit_hub_keyboard(language_code: str, selection_data: dict) -> Inline
     else:
         builder.row(types.InlineKeyboardButton(text=lex.get('hub_not_ready', '⏳ Заполните данные'), callback_data="deposit_hub:incomplete"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_profile_button'], callback_data="profile"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_profile_button', 'back_to_profile_button'), callback_data="profile"))
     return builder.as_markup()
 
 def get_payment_methods_keyboard(language_code: str) -> InlineKeyboardMarkup:
@@ -59,11 +59,11 @@ def get_payment_methods_keyboard(language_code: str) -> InlineKeyboardMarkup:
     )
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['sbp_button'], callback_data="deposit_set_method:sbp"),
-        types.InlineKeyboardButton(text=lex['cards_button'], callback_data="deposit_set_method:cards")
+        types.InlineKeyboardButton(text=lex.get('sbp_button', 'sbp_button'), callback_data="deposit_set_method:sbp"),
+        types.InlineKeyboardButton(text=lex.get('cards_button', 'cards_button'), callback_data="deposit_set_method:cards")
     )
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="deposit_hub:back"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="deposit_hub:back"))
     return builder.as_markup()
 
 def get_country_selection_keyboard(language_code: str) -> InlineKeyboardMarkup:
@@ -73,7 +73,7 @@ def get_country_selection_keyboard(language_code: str) -> InlineKeyboardMarkup:
         types.InlineKeyboardButton(text=lex.get('russian_cards', "🇷🇺 РФ"), callback_data="select_country:ru"),
         types.InlineKeyboardButton(text=lex.get('ukrainian_cards', "🇺🇦 Украина"), callback_data="select_country:ua")
     )
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="deposit_hub:back"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="deposit_hub:back"))
     return builder.as_markup()
 
 def get_card_selection_keyboard(country_code: str, language_code: str) -> InlineKeyboardMarkup:
@@ -92,14 +92,14 @@ def get_session_management_keyboard(language_code: str) -> InlineKeyboardMarkup:
     builder.row(types.InlineKeyboardButton(text=lex.get('session_generate_new', '➕ Создать'), callback_data="session_generate"))
     builder.row(types.InlineKeyboardButton(text=lex.get('session_view_saved', '📄 Мои сессии'), callback_data="session_view"))
     builder.row(types.InlineKeyboardButton(text=lex.get('session_download_all', '📥 Скачать'), callback_data="session_download"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_profile_button'], callback_data="profile"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_profile_button', 'back_to_profile_button'), callback_data="profile"))
     return builder.as_markup()
 
 def get_card_payment_confirmation_keyboard(language_code: str) -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(text=lex['i_paid_button'], callback_data="card_payment_confirmed"))
-    builder.row(types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="cancel_payment"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('i_paid_button', 'i_paid_button'), callback_data="card_payment_confirmed"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="cancel_payment"))
     return builder.as_markup()
 
 def get_referral_menu_keyboard(has_advanced: bool, language_code: str) -> InlineKeyboardMarkup:
@@ -107,7 +107,7 @@ def get_referral_menu_keyboard(has_advanced: bool, language_code: str) -> Inline
     builder = InlineKeyboardBuilder()
     if not has_advanced:
         builder.row(types.InlineKeyboardButton(text=lex.get('upgrade_referral_button', '🚀 Upgrade').format(price=75), callback_data="upgrade_referral_confirm"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_profile_button'], callback_data="profile"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_profile_button', 'back_to_profile_button'), callback_data="profile"))
     return builder.as_markup()
 
 def get_bonus_container_selection_keyboard(containers: list, language_code: str) -> InlineKeyboardMarkup:
@@ -115,14 +115,14 @@ def get_bonus_container_selection_keyboard(containers: list, language_code: str)
     builder = InlineKeyboardBuilder()
     for c in containers:
         builder.row(types.InlineKeyboardButton(text=f"📦 {c['container_name']}", callback_data=f"bonus_container:{c['id']}"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_profile_button'], callback_data="profile"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_profile_button', 'back_to_profile_button'), callback_data="profile"))
     return builder.as_markup()
 
 def get_settings_menu_keyboard(language_code: str) -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(text=lex.get('profile_settings_button', '🎨 Вид профиля'), callback_data="profile_settings"))
-    builder.row(types.InlineKeyboardButton(text=lex['change_lang_button'], callback_data="change_lang"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('change_lang_button', 'change_lang_button'), callback_data="change_lang"))
     builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'Назад'), callback_data="misc_menu"))
     return builder.as_markup()
 
@@ -169,7 +169,7 @@ def get_profile_settings_keyboard(settings: dict, language_code: str) -> InlineK
         callback_data="toggle_profile_setting:use_old_banners"
     ))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="settings_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="settings_menu"))
     return builder.as_markup()
 
 def get_ticket_rating_keyboard(ticket_id: int) -> InlineKeyboardMarkup:

@@ -37,10 +37,10 @@ async def show_final_deposit_confirmation(callback: types.CallbackQuery, state: 
 
     if method_id == 'sbp':
         await state.set_state(DepositState.waiting_for_bank_name)
-        payment_instructions = lex['sbp_payment_instruction'].format(amount=amount, phone_number=PAYMENT_PHONE, paid_button_text=lex['i_paid_button'])
+        payment_instructions = lex.get('sbp_payment_instruction', 'sbp_payment_instruction').format(amount=amount, phone_number=PAYMENT_PHONE, paid_button_text=lex.get('i_paid_button', 'i_paid_button'))
         builder = InlineKeyboardBuilder()
-        builder.row(types.InlineKeyboardButton(text=lex['i_paid_button'], callback_data="payment_confirmed"))
-        builder.row(types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="cancel_payment"))
+        builder.row(types.InlineKeyboardButton(text=lex.get('i_paid_button', 'i_paid_button'), callback_data="payment_confirmed"))
+        builder.row(types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="cancel_payment"))
         await callback.message.answer(payment_instructions, reply_markup=builder.as_markup())
 
     elif method_id == 'cards':
@@ -54,11 +54,11 @@ async def show_final_deposit_confirmation(callback: types.CallbackQuery, state: 
             )
             return
 
-        payment_instructions = lex['card_payment_instruction'].format(
+        payment_instructions = lex.get('card_payment_instruction', 'card_payment_instruction').format(
             amount=amount,
             bank_name=card_info['bank'],
             card_number=card_info['number'],
-            paid_button_text=lex['i_paid_button']
+            paid_button_text=lex.get('i_paid_button', 'i_paid_button')
         )
         await callback.message.answer(payment_instructions, reply_markup=get_card_payment_confirmation_keyboard(language_code))
         await state.set_state(DepositState.waiting_for_card_payment)

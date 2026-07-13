@@ -15,6 +15,34 @@ LEXICON: dict[str, dict[str, str]] = {
     'uk': {},
 }
 
+_FALLBACK = {
+    'welcome_text': 'Привет, {first_name}! Добро пожаловать в CatDock.',
+    'welcome_text_new_user': 'Привет, {first_name}! Добро пожаловать в CatDock.',
+    'my_userbots_button': '🤖 Мои UserBot',
+    'tariffs_button': '📦 Тарифы',
+    'profile_button': '👤 Профиль',
+    'deposit_button': '💰 Пополнить',
+    'referral_button': '👥 Рефералы',
+    'finance_button': '💳 Финансы',
+    'admin_button': '⚙️ Админ',
+    'support_button': '🎫 Поддержка',
+    'back_button': '🔙 Назад',
+    'main_menu_button': '🏠 Главное меню',
+    'cancel_button': '❌ Отмена',
+    'server_status_button': '📊 Статус серверов',
+    'support_chat_button': '💬 Чат',
+    'support_account_button': '👨‍💻 Агент',
+    'misc_menu_button': '🗂️ Меню',
+    'ref_system_button': '👥 Рефералы',
+    'settings_button': '⚙️ Настройки',
+    'logout_button': '🚪 Выйти',
+}
+
+for lang in LEXICON:
+    for k, v in _FALLBACK.items():
+        if k not in LEXICON[lang]:
+            LEXICON[lang][k] = v
+
 def _load_from_dir(directory: str):
     """Читает JSON-файлы из указанной директории и обновляет LEXICON."""
     global LEXICON

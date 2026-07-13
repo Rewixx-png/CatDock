@@ -46,7 +46,7 @@ def get_container_list_keyboard(containers: list, page: int, total_pages: int, s
     if nav_buttons:
         builder.row(*nav_buttons)
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 async def get_user_containers_list_keyboard(containers: list, target_user_id: int, from_page: int, language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -60,7 +60,7 @@ async def get_user_containers_list_keyboard(containers: list, target_user_id: in
         text = f"{frozen_icon}{container['container_name']} ({server_name} | {image_name})"
         builder.row(types.InlineKeyboardButton(text=text, callback_data=f"manage_bot:{container['id']}:user:{target_user_id}:{from_page}"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data=f"admin_select_user:{target_user_id}:{from_page}"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data=f"admin_select_user:{target_user_id}:{from_page}"))
     return builder.as_markup()
 
 def get_orphaned_containers_keyboard(count: int, language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -71,7 +71,7 @@ def get_orphaned_containers_keyboard(count: int, language_code: str = 'ru') -> I
         callback_data="admin_delete_orphans"
     ))
     builder.row(types.InlineKeyboardButton(
-        text=lex['cancel_button'],
+        text=lex.get('cancel_button', 'cancel_button'),
         callback_data="cancel_admin_action:admin_panel"
     ))
     return builder.as_markup()
@@ -84,7 +84,7 @@ def get_checkcont_keyboard(count: int, language_code: str = 'ru') -> InlineKeybo
         callback_data="admin_delete_checkcont"
     ))
     builder.row(types.InlineKeyboardButton(
-        text=lex['back_to_admin_panel_button'],
+        text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'),
         callback_data="admin_panel"
     ))
     return builder.as_markup()
@@ -109,7 +109,7 @@ async def get_admin_container_list_keyboard(containers: list, language_code: str
         text = f"👑 {container['container_name']} (Владелец: {owner_name})"
         builder.row(types.InlineKeyboardButton(text=text, callback_data=f"manage_bot:{container['id']}:admin_list"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data="admin_containers_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data="admin_containers_menu"))
     return builder.as_markup()
 
 async def get_admin_containers_menu_keyboard(language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -117,5 +117,5 @@ async def get_admin_containers_menu_keyboard(language_code: str = 'ru') -> Inlin
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(text=lex.get('give_admin_container_button', "➕ Выдать админ-контейнер"), callback_data="give_admin_container_start"))
     builder.row(types.InlineKeyboardButton(text=lex.get('admin_container_list_button', "📋 Список админ-контейнеров"), callback_data="admin_container_list"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()

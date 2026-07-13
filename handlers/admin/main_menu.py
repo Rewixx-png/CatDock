@@ -197,7 +197,7 @@ async def bot_settings_menu(callback: types.CallbackQuery):
     lex = LEXICON[language_code]
     await send_admin_panel_menu(
         callback,
-        lex['bot_settings_title'],
+        lex.get('bot_settings_title', 'bot_settings_title'),
         get_bot_settings_keyboard(bot_state.maintenance_mode, bot_state.raid_mode, language_code)
     )
 

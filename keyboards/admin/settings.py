@@ -13,7 +13,7 @@ def get_bot_settings_keyboard(maintenance_mode: bool = False, raid_mode: bool = 
     builder.row(types.InlineKeyboardButton(text=maint_text, callback_data="toggle_maintenance"))
     builder.row(types.InlineKeyboardButton(text=raid_text, callback_data="toggle_raid_mode"))
     builder.row(types.InlineKeyboardButton(text=lex.get('clear_cache_button', 'Clear Cache'), callback_data="admin_clear_cache"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 

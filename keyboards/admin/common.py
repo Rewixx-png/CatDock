@@ -7,7 +7,7 @@ from config import WEB_APP_URL
 def get_cancel_admin_action_keyboard(back_to: str = "admin_panel", language_code: str = 'ru') -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(text=lex['cancel_button'], callback_data=back_to))
+    builder.row(types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data=back_to))
     return builder.as_markup()
 
 def get_yes_no_keyboard(language_code: str, yes_callback: str, no_callback: str) -> InlineKeyboardMarkup:

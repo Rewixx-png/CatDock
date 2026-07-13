@@ -36,7 +36,7 @@ async def get_logs_handler(callback: types.CallbackQuery, state: FSMContext):
 
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(text="🖥️ Открыть терминал логов", url=logs_url))
-    builder.row(types.InlineKeyboardButton(text=lex['back_button'], callback_data=f"manage_bot:{container_id}"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_button', 'back_button'), callback_data=f"manage_bot:{container_id}"))
 
     text = (
         "📋 <b>Просмотр логов</b>\n\n"

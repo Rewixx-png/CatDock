@@ -33,8 +33,8 @@ async def send_main_menu(event: types.Message | types.CallbackQuery, state: FSMC
     lex = LEXICON.get(language_code, LEXICON['ru'])
     welcome_text_key = 'welcome_text_new_user' if is_new_user else 'welcome_text'
 
-    caption_template = lex.get(welcome_text_key, lex.get('welcome_text'))
-    safe_first_name = html.escape(user.first_name)
+    caption_template = lex.get(welcome_text_key) or lex.get('welcome_text') or "Привет, {first_name}!"
+    safe_first_name = html.escape(user.first_name or "User")
     caption = caption_template.format(first_name=safe_first_name)
     caption += f"\n\n<tg-spoiler>v{BOT_VERSION}</tg-spoiler>"
 
@@ -70,36 +70,46 @@ async def cmd_start(message: types.Message, state: FSMContext, command: CommandO
     args = command.args.strip() if command and command.args else None
     user = message.from_user
 
-    exists = await db.user_exists(user.id)
-    is_new = False
+    language_code = await db.get_user_language(user.id) or 'ru'
+    lex = LEXICON.get(language_code, LEXICON['ru'])
 
-    if not exists:
-        is_new = True
-        await db.create_user(
-            user_id=user.id,
-            username=user.username or "",
-            first_name=user.first_name or "User"
-        )
+    if args and args.startswith("ct_"):
+        await claim_container_by_token(message, args, state)
+        return
 
-    if not await db.has_completed_language_selection(user.id):
+    has_lang = language_code and language_code != 'ru'
+    if not has_lang:
+        try:
+            profile = await db.get_user_profile(user.id)
+            has_lang = profile and profile.get('language') and profile['language'] != 'ru'
+        except Exception:
+            has_lang = False
+
+    if not has_lang:
         await message.answer(
             "Select language / Выберите язык:",
             reply_markup=get_language_selection_keyboard()
         )
         return
 
-    if args and args.startswith("ct_"):
-        await claim_container_by_token(message, args, state)
-        return
+    referrer_id = None
+    if args:
+        try:
+            ref_id = int(args.replace('/', ''))
+            if ref_id != user.id:
+                referrer_id = ref_id
+        except (ValueError, TypeError):
+            await message.answer(lex.get('invalid_referral'))
+            return
+
+    is_new = await db.add_user(
+        user_id=user.id,
+        username=user.username or "",
+        first_name=user.first_name or "User",
+        referrer_id=referrer_id
+    )
 
     await send_main_menu(message, state, is_new_user=is_new)
-
-
-@router.callback_query(F.data == "initial_start_done")
-async def initial_start_done_handler(callback: types.CallbackQuery, state: FSMContext):
-    await safe_delete_message(callback.bot, callback.message.chat.id, callback.message.message_id)
-    await send_main_menu(callback, state, is_new_user=True)
-    await safe_callback_answer(callback)
 
 
 @router.callback_query(F.data == "back_to_main_menu")
@@ -107,3 +117,10 @@ async def back_to_main_menu(callback: types.CallbackQuery, state: FSMContext):
     await safe_callback_answer(callback)
     await safe_delete_message(callback.bot, callback.message.chat.id, callback.message.message_id)
     await send_main_menu(callback, state)
+
+
+@router.callback_query(F.data == "initial_start_done")
+async def initial_start_done_handler(callback: types.CallbackQuery, state: FSMContext):
+    await safe_delete_message(callback.bot, callback.message.chat.id, callback.message.message_id)
+    await send_main_menu(callback, state, is_new_user=True)
+    await safe_callback_answer(callback)

@@ -9,7 +9,7 @@ def get_give_confirmation_keyboard(language_code: str = 'ru') -> InlineKeyboardM
     builder = InlineKeyboardBuilder()
     builder.row(
         types.InlineKeyboardButton(text=lex.get('confirm_give_button', "✅ Да, выдать"), callback_data="confirm_give_container"),
-        types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="cancel_admin_action")
+        types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="cancel_admin_action")
     )
     return builder.as_markup()
 
@@ -41,7 +41,7 @@ def get_give_admin_server_keyboard(language_code: str = 'ru') -> InlineKeyboardM
             text=server_info['name'], 
             callback_data=f"give_admin_server:{server_id}"
         ))
-    builder.row(types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="admin_containers_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="admin_containers_menu"))
     return builder.as_markup()
 
 def get_give_admin_image_keyboard(language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -52,7 +52,7 @@ def get_give_admin_image_keyboard(language_code: str = 'ru') -> InlineKeyboardMa
             text=image_info['name'], 
             callback_data=f"give_admin_image:{image_id}"
         ))
-    builder.row(types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="admin_containers_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="admin_containers_menu"))
     return builder.as_markup()
 
 def get_give_admin_confirmation_keyboard(language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -60,6 +60,6 @@ def get_give_admin_confirmation_keyboard(language_code: str = 'ru') -> InlineKey
     builder = InlineKeyboardBuilder()
     builder.row(
         types.InlineKeyboardButton(text=lex.get('confirm_give_button', "✅ Да, выдать"), callback_data="confirm_give_admin_container"),
-        types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="admin_containers_menu")
+        types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="admin_containers_menu")
     )
     return builder.as_markup()

@@ -26,7 +26,7 @@ def get_server_management_keyboard(language_code: str = 'ru') -> InlineKeyboardM
             callback_data=f"toggle_server_status:{server_id}"
         ))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 def get_server_edit_list_keyboard(language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -76,7 +76,7 @@ def get_server_delete_confirm_keyboard(server_id: str, language_code: str = 'ru'
     builder = InlineKeyboardBuilder()
     builder.row(
         types.InlineKeyboardButton(text=lex.get('server_delete_confirm', "🔥 Да, удалить навсегда"), callback_data=f"admin_server_delete_confirm:{server_id}"),
-        types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="manage_servers")
+        types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="manage_servers")
     )
     return builder.as_markup()
 
@@ -89,7 +89,7 @@ def get_server_for_update_keyboard(language_code: str = 'ru') -> InlineKeyboardM
             callback_data=f"select_server_for_update:{server_id}"
         ))
     builder.row(types.InlineKeyboardButton(
-        text=lex['back_to_admin_panel_button'],
+        text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'),
         callback_data="admin_panel"
     ))
     return builder.as_markup()

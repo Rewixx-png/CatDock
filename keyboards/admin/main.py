@@ -38,12 +38,12 @@ async def get_admin_management_menu(user_id: int, language_code: str = 'ru') -> 
     builder = InlineKeyboardBuilder()
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['manage_users_button'], callback_data="manage_users"),
+        types.InlineKeyboardButton(text=lex.get('manage_users_button', 'manage_users_button'), callback_data="manage_users"),
         types.InlineKeyboardButton(text="🔍 Поиск юзера", callback_data="admin_search_user")
     )
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['manage_containers_button'], callback_data="manage_containers"),
+        types.InlineKeyboardButton(text=lex.get('manage_containers_button', 'manage_containers_button'), callback_data="manage_containers"),
         types.InlineKeyboardButton(text="🔍 Поиск контейнера", callback_data="admin_search_container_by_id")
     )
 
@@ -53,7 +53,7 @@ async def get_admin_management_menu(user_id: int, language_code: str = 'ru') -> 
             types.InlineKeyboardButton(text="👑 Админ-контейнеры", callback_data="admin_containers_menu")
         )
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 async def get_admin_system_menu(user_id: int, language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -63,7 +63,7 @@ async def get_admin_system_menu(user_id: int, language_code: str = 'ru') -> Inli
 
     builder.row(
         types.InlineKeyboardButton(text="📊 Диагностика", callback_data="admin_diagnostics"),
-        types.InlineKeyboardButton(text=lex['bot_settings_button'], callback_data="bot_settings")
+        types.InlineKeyboardButton(text=lex.get('bot_settings_button', 'bot_settings_button'), callback_data="bot_settings")
     )
 
     if user_role >= UserRole.CO_OWNER:
@@ -82,7 +82,7 @@ async def get_admin_system_menu(user_id: int, language_code: str = 'ru') -> Inli
             types.InlineKeyboardButton(text="💀 Зомби клинер", callback_data="/zombie")    
         )
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()
 
 async def get_admin_marketing_menu(user_id: int, language_code: str = 'ru') -> InlineKeyboardMarkup:
@@ -92,5 +92,5 @@ async def get_admin_marketing_menu(user_id: int, language_code: str = 'ru') -> I
     builder.row(types.InlineKeyboardButton(text=lex.get('news_button_title', "📢 Новость"), callback_data="admin_send_news"))
     builder.row(types.InlineKeyboardButton(text=lex.get('mailing_button', "📬 Рассылка"), callback_data="start_broadcast"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_admin_panel_button'], callback_data="admin_panel"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_admin_panel_button', 'back_to_admin_panel_button'), callback_data="admin_panel"))
     return builder.as_markup()

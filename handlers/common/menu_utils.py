@@ -71,11 +71,11 @@ async def _update_management_menu_with_stats(
         session_status_key = 'error'
 
     if is_frozen:
-        status_text = lex['status_frozen']
+        status_text = lex.get('status_frozen', 'status_frozen')
     else:
         status_text = {
-            'running': lex['status_running'], 'stopped': lex['status_exited'], 'exited': lex['status_exited'],
-            'restarting': lex['status_restarting'], 'not_found': lex['status_not_found'], 'error': lex['status_error']
+            'running': lex.get('status_running', 'status_running'), 'stopped': lex.get('status_exited', 'status_exited'), 'exited': lex.get('status_exited', 'status_exited'),
+            'restarting': lex.get('status_restarting', 'status_restarting'), 'not_found': lex.get('status_not_found', 'status_not_found'), 'error': lex.get('status_error', 'status_error')
         }.get(status, f"⚙️ {status.capitalize()}")
 
     stats_text = ""
@@ -111,7 +111,7 @@ async def _update_management_menu_with_stats(
 
     actual_ram_mb = container.get('ram_mb') or TARIFFS.get(container['tariff_id'], {}).get('ram_mb', 'N/A')
 
-    text = lex['manage_userbot_info'].format(
+    text = lex.get('manage_userbot_info', 'manage_userbot_info').format(
         container_id=container_id,
         container_name=container['container_name'],
         server_name=server_name,
@@ -185,7 +185,7 @@ async def show_management_menu(
 
     actual_ram_mb = container.get('ram_mb') or TARIFFS.get(container['tariff_id'], {}).get('ram_mb', 'N/A')
 
-    initial_text = lex['manage_userbot_info'].format(
+    initial_text = lex.get('manage_userbot_info', 'manage_userbot_info').format(
         container_id=container_id,
         container_name=container['container_name'],
         server_name=server_name,

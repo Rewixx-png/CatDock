@@ -12,13 +12,13 @@ async def get_main_menu_keyboard(language_code: str, user_id: int) -> InlineKeyb
     builder = InlineKeyboardBuilder()
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['my_userbots_button'], callback_data="my_userbots"),
-        types.InlineKeyboardButton(text=lex['tariffs_button'], callback_data="tariffs")
+        types.InlineKeyboardButton(text=lex.get('my_userbots_button', '🤖 Мои UserBot'), callback_data="my_userbots"),
+        types.InlineKeyboardButton(text=lex.get('tariffs_button', '📦 Тарифы'), callback_data="tariffs")
     )
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['profile_button'], callback_data="profile"),
-        types.InlineKeyboardButton(text=lex['deposit_button'], callback_data="add_balance")
+        types.InlineKeyboardButton(text=lex.get('profile_button', '👤 Профиль'), callback_data="profile"),
+        types.InlineKeyboardButton(text=lex.get('deposit_button', '💰 Пополнить'), callback_data="add_balance")
     )
 
     builder.row(
@@ -32,7 +32,7 @@ async def get_misc_menu_keyboard(language_code: str, user_id: int) -> InlineKeyb
     builder = InlineKeyboardBuilder()
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['server_status_button'], url="https://catdock.catdock.io/status")
+        types.InlineKeyboardButton(text=lex.get('server_status_button', 'server_status_button'), url="https://catdock.catdock.io/status")
     )
 
     builder.row(
@@ -40,7 +40,7 @@ async def get_misc_menu_keyboard(language_code: str, user_id: int) -> InlineKeyb
     )
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['support_chat_button'], url="https://t.me/catdock_chat"),
+        types.InlineKeyboardButton(text=lex.get('support_chat_button', 'support_chat_button'), url="https://t.me/catdock_chat"),
         
         types.InlineKeyboardButton(text=lex.get('support_account_button', '👨‍💻 Агент'), url=SUPPORT_URL)
     )
@@ -49,7 +49,7 @@ async def get_misc_menu_keyboard(language_code: str, user_id: int) -> InlineKeyb
     if user_role and user_role >= UserRole.ADMIN:
         builder.row(types.InlineKeyboardButton(text=lex.get('admin_panel_button', '👑 Админка'), callback_data="admin_panel"))
 
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_main_menu_button'], callback_data="back_to_main_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_main_menu_button', 'back_to_main_menu_button'), callback_data="back_to_main_menu"))
 
     return builder.as_markup()
 
@@ -70,7 +70,7 @@ def get_simple_confirmation_keyboard(language_code: str, yes_callback: str, no_c
     builder = InlineKeyboardBuilder()
 
     builder.row(
-        types.InlineKeyboardButton(text=lex['confirm_button'], callback_data=yes_callback),
+        types.InlineKeyboardButton(text=lex.get('confirm_button', 'confirm_button'), callback_data=yes_callback),
         types.InlineKeyboardButton(text=lex.get('no_back_button', '❌ Нет'), callback_data=no_callback)
     )
     return builder.as_markup()
@@ -78,14 +78,14 @@ def get_simple_confirmation_keyboard(language_code: str, yes_callback: str, no_c
 def get_server_status_keyboard(language_code: str) -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
-    builder.row(types.InlineKeyboardButton(text=lex['refresh_button'], callback_data="server_status"))
-    builder.row(types.InlineKeyboardButton(text=lex['back_to_main_menu_button'], callback_data="back_to_main_menu"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('refresh_button', 'refresh_button'), callback_data="server_status"))
+    builder.row(types.InlineKeyboardButton(text=lex.get('back_to_main_menu_button', 'back_to_main_menu_button'), callback_data="back_to_main_menu"))
     return builder.as_markup()
 
 def get_cancel_keyboard(language_code: str) -> InlineKeyboardMarkup:
     lex = LEXICON.get(language_code, LEXICON['ru'])
     builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(text=lex['cancel_button'], callback_data="cancel_payment"))
+    builder.add(types.InlineKeyboardButton(text=lex.get('cancel_button', 'cancel_button'), callback_data="cancel_payment"))
     return builder.as_markup()
 
 def get_admin_deposit_keyboard(user_id: int, amount: float, language_code: str = 'ru') -> InlineKeyboardMarkup:
