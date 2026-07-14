@@ -233,4 +233,12 @@ def setup_api_server(bot: Bot) -> FastAPI:
     async def terminal_page():
         return await terminal_response()
 
+    @app.get("/setup.html", response_class=HTMLResponse, include_in_schema=False)
+    async def setup_page():
+        setup_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "setup.html")
+        if not os.path.exists(setup_path):
+            raise StarletteHTTPException(status_code=404, detail="Setup template not found")
+        with open(setup_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+
     return app

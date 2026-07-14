@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CatDock Setup</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css" />
+    <style>
+        :root {
+            --bg: #0a0a0f; --panel: #12121a; --border: #1e1e2e;
+            --accent: #cba6f7; --text: #cdd6f4; --danger: #f38ba8;
+            --success: #a6e3a1; --warning: #f9e2af;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: 'JetBrains Mono', monospace;
+            height: 100dvh; display: flex;
+        }
+        .sidebar {
+            width: 380px; background: var(--panel); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 16px; gap: 12px;
+            overflow-y: auto; flex-shrink: 0;
+        }
+        .sidebar h2 { color: var(--accent); font-size: 16px; }
+        .step { display: none; }
+        .step.active { display: flex; flex-direction: column; gap: 8px; }
+        .step label { font-size: 12px; color: #6c7086; }
+        .step input, .step select {
+            background: var(--bg); border: 1px solid var(--border);
+            color: var(--text); padding: 10px; border-radius: 8px;
+            font-family: inherit; font-size: 14px;
+        }
+        .step input:focus { border-color: var(--accent); outline: none; }
+        .btn {
+            background: var(--accent); color: var(--bg); border: none;
+            padding: 10px 16px; border-radius: 8px; font-family: inherit;
+            font-weight: 600; font-size: 13px; cursor: pointer;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn.secondary { background: var(--border); color: var(--text); }
+        .btn.danger { background: var(--danger); }
+        .btn-row { display: flex; gap: 8px; }
+        .terminal-side {
+            flex: 1; min-width: 0; display: flex; flex-direction: column;
+            padding: 4px;
+        }
+        .terminal-side .status {
+            padding: 6px 12px; font-size: 11px; color: var(--warning);
+        }
+        .terminal-side .status.connected { color: var(--success); }
+        #terminal { flex: 1; }
+        #hidden-input { position: absolute; left: -9999px; opacity: 0; }
+        .qr-box {
+            background: white; padding: 16px; border-radius: 8px;
+            text-align: center; margin: 8px 0;
+        }
+        .qr-box canvas { max-width: 100%; }
+        .toast {
+            position: fixed; bottom: 16px; right: 16px;
+            background: var(--success); color: var(--bg);
+            padding: 8px 16px; border-radius: 8px; font-size: 13px;
+            opacity: 0; transition: opacity 0.2s; z-index: 100;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <h2>CatDock Setup</h2>
+
+        <!-- Step 1: Auto (colors) -->
+        <div class="step active" id="step-colors">
+            <p style="font-size:13px">Setting up Hikka — auto-answering prompts...</p>
+            <div style="color:var(--warning);font-size:12px" id="colors-status">Waiting for terminal...</div>
+        </div>
+
+        <!-- Step 2: API ID -->
+        <div class="step" id="step-api">
+            <label>API ID (from my.telegram.org)</label>
+            <input type="text" id="api-id" placeholder="12345678">
+            <button class="btn" onclick="submitApiId()">Next →</button>
+        </div>
+
+        <!-- Step 3: API Hash -->
+        <div class="step" id="step-hash">
+            <label>API Hash (from my.telegram.org)</label>
+            <input type="text" id="api-hash" placeholder="abcdef1234567890abcdef...">
+            <button class="btn" onclick="submitApiHash()">Next →</button>
+        </div>
+
+        <!-- Step 4: QR or phone -->
+        <div class="step" id="step-qr-choice">
+            <p style="font-size:13px">Login method:</p>
+            <div class="btn-row">
+                <button class="btn" onclick="sendToTerminal('y')">📱 QR Code</button>
+                <button class="btn secondary" onclick="sendToTerminal('n')">📞 Phone Number</button>
+            </div>
+        </div>
+
+        <!-- Step 5: QR display -->
+        <div class="step" id="step-qr">
+            <p style="font-size:13px">Scan QR code with Telegram:</p>
+            <div class="qr-box" id="qr-display">
+                <p style="color:#666">Waiting for QR...</p>
+            </div>
+            <button class="btn secondary" onclick="switchToPhone()">Use phone instead</button>
+        </div>
+
+        <!-- Step 6: Phone number -->
+        <div class="step" id="step-phone">
+            <label>Phone number (with country code)</label>
+            <input type="tel" id="phone-number" placeholder="+79991234567">
+            <button class="btn" onclick="submitPhone()">Next →</button>
+        </div>
+
+        <!-- Step 7: Verification code -->
+        <div class="step" id="step-code">
+            <label>Verification code (from Telegram)</label>
+            <input type="text" id="verify-code" placeholder="12345">
+            <button class="btn" onclick="submitCode()">Verify</button>
+        </div>
+
+        <!-- Step 8: 2FA password -->
+        <div class="step" id="step-2fa">
+            <label>Cloud Password (2FA)</label>
+            <input type="password" id="2fa-password" placeholder="••••••••">
+            <button class="btn" onclick="submit2fa()">Unlock</button>
+        </div>
+
+        <!-- Step 9: Done -->
+        <div class="step" id="step-done">
+            <p style="color:var(--success);font-size:14px">✅ Setup complete!</p>
+            <p style="font-size:12px">Userbot is starting. You can close this page.</p>
+        </div>
+    </div>
+
+    <div class="terminal-side">
+        <div class="status disconnected" id="status">connecting...</div>
+        <div id="terminal"></div>
+    </div>
+    <input type="text" id="hidden-input" autocomplete="off">
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const containerId = urlParams.get('container_id');
+        const serverId = urlParams.get('server_id') || 'local';
+
+        let socket = null, term = null, fitAddon = null;
+        let currentStep = 'colors';
+        let terminalBuffer = '';
+        let qrData = null;
+
+        function showStep(id) {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            const el = document.getElementById('step-' + id);
+            if (el) { el.classList.add('active'); currentStep = id; }
+        }
+
+        function showToast(msg, err = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.className = 'toast' + (err ? ' error' : '');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2000);
+        }
+
+        function sendToTerminal(text) {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({type: 'input', data: text + '\r'}));
+                showToast('Sent: ' + text);
+            }
+        }
+
+        function submitApiId() {
+            const val = document.getElementById('api-id').value.trim();
+            if (!val) return showToast('Enter API ID', true);
+            sendToTerminal(val);
+            showStep('hash');
+        }
+
+        function submitApiHash() {
+            const val = document.getElementById('api-hash').value.trim();
+            if (!val) return showToast('Enter API Hash', true);
+            sendToTerminal(val);
+            showStep('qr-choice');
+        }
+
+        function submitPhone() {
+            const val = document.getElementById('phone-number').value.trim();
+            if (!val) return showToast('Enter phone number', true);
+            sendToTerminal(val);
+            showStep('code');
+        }
+
+        function submitCode() {
+            const val = document.getElementById('verify-code').value.trim();
+            if (!val) return showToast('Enter code', true);
+            sendToTerminal(val);
+            // Wait to see if 2FA is needed
+            setTimeout(() => {
+                if (currentStep === 'code') showStep('done');
+            }, 3000);
+        }
+
+        function submit2fa() {
+            const val = document.getElementById('2fa-password').value;
+            if (!val) return showToast('Enter password', true);
+            sendToTerminal(val);
+            showStep('done');
+        }
+
+        function switchToPhone() {
+            sendToTerminal('\x03'); // Ctrl+C to cancel QR wait
+            showStep('phone');
+        }
+
+        function processTerminalOutput(data) {
+            terminalBuffer += data;
+            // Keep only last 2000 chars
+            if (terminalBuffer.length > 2000) terminalBuffer = terminalBuffer.slice(-2000);
+
+            const lower = terminalBuffer.toLowerCase();
+
+            // Auto-answer "colors?" with 'y'
+            if (currentStep === 'colors' && lower.includes('color')) {
+                sendToTerminal('y');
+                document.getElementById('colors-status').textContent = '✅ Colors: yes';
+                showStep('api');
+            }
+
+            // Detect "api_id" prompt
+            if (currentStep === 'api' && lower.includes('api_id')) {
+                // Already on API step, user fills form
+            }
+
+            // Detect "api_hash" prompt
+            if (currentStep === 'hash' && lower.includes('api_hash')) {
+                // Already on hash step
+            }
+
+            // Detect QR code prompt
+            if ((currentStep === 'qr-choice' || currentStep === 'api' || currentStep === 'hash') &&
+                (lower.includes('qr') && lower.includes('code') || lower.includes('quick response'))) {
+                // User already chose
+            }
+
+            // Detect QR URL in output
+            const qrMatch = terminalBuffer.match(/tg://login\?token=[a-zA-Z0-9_-]+/);
+            if (qrMatch && currentStep === 'qr-choice') {
+                showStep('qr');
+                setTimeout(() => renderQR(qrMatch[0]), 500);
+            }
+
+            // Detect "code" prompt (verification)
+            if (lower.includes('enter the') && lower.includes('code') || lower.includes('verification code')) {
+                if (currentStep === 'qr-choice' || currentStep === 'qr' || currentStep === 'phone') {
+                    showStep('code');
+                }
+            }
+
+            // Detect 2FA
+            if (lower.includes('password') && (lower.includes('two') || lower.includes('2fa') || lower.includes('cloud'))) {
+                showStep('2fa');
+            }
+
+            // Detect success
+            if (lower.includes('successfully') && lower.includes('logged') || lower.includes('authorized')) {
+                showStep('done');
+            }
+        }
+
+        function renderQR(url) {
+            const qr = new QRCodeStyling({
+                width: 200, height: 200,
+                data: url,
+                dotsOptions: { color: '#000', type: 'square' },
+                backgroundOptions: { color: '#fff' }
+            });
+            const box = document.getElementById('qr-display');
+            box.innerHTML = '';
+            qr.append(box);
+        }
+
+        function connect() {
+            const container = document.getElementById('terminal');
+            container.innerHTML = '';
+
+            term = new Terminal({
+                cursorBlink: true,
+                fontFamily: '"JetBrains Mono", monospace',
+                fontSize: 13,
+                theme: { background: '#0a0a0f', foreground: '#cdd6f4', cursor: '#cba6f7' },
+                scrollback: 5000
+            });
+
+            fitAddon = new FitAddon.FitAddon();
+            term.loadAddon(fitAddon);
+            term.open(container);
+            fitAddon.fit();
+
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            let wsUrl = `${protocol}://${window.location.host}/api/v1/terminal/ws?token=${encodeURIComponent(token)}`;
+            if (containerId) wsUrl += `&container_id=${encodeURIComponent(containerId)}`;
+            if (serverId) wsUrl += `&server_id=${encodeURIComponent(serverId)}`;
+
+            socket = new WebSocket(wsUrl);
+            window.socket = socket;
+
+            const hiddenInput = document.getElementById('hidden-input');
+            term.onData(data => {
+                if (socket && socket.readyState === WebSocket.OPEN)
+                    socket.send(JSON.stringify({type: 'input', data}));
+            });
+
+            socket.addEventListener('message', event => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'output') {
+                        term.write(msg.data);
+                        processTerminalOutput(msg.data);
+                    }
+                } catch(e) { term.write(event.data); }
+            });
+
+            socket.addEventListener('open', () => {
+                document.getElementById('status').textContent = 'connected';
+                document.getElementById('status').className = 'status connected';
+                term.focus(); hiddenInput.focus();
+                socket.send(JSON.stringify({type: 'resize', cols: term.cols, rows: term.rows}));
+            });
+
+            socket.addEventListener('close', () => {
+                document.getElementById('status').textContent = 'disconnected';
+                document.getElementById('status').className = 'status disconnected';
+            });
+
+            window.addEventListener('resize', () => {
+                fitAddon.fit();
+                if (socket && socket.readyState === WebSocket.OPEN)
+                    socket.send(JSON.stringify({type: 'resize', cols: term.cols, rows: term.rows}));
+            });
+
+            term.element.addEventListener('click', () => hiddenInput.focus());
+            hiddenInput.addEventListener('input', e => {
+                if (socket && socket.readyState === WebSocket.OPEN)
+                    socket.send(JSON.stringify({type: 'input', data: e.target.value}));
+                e.target.value = '';
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', connect);
+    </script>
+</body>
+</html>
