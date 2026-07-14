@@ -12,16 +12,7 @@ BASE_CONTAINERS_DIR = "/var/lib/catdock/containers"
 
 IMAGE_FIXES = {
     'heroku': {
-        'command': ["python3", "-m", "heroku", "--root", "--data-root", "/user_data"] 
-    },
-    'catdock': {
-        'command': ["python3", "-m", "heroku", "--root", "--data-root", "/user_data"]
-    },
-    'legacy': {
-        'command': ["python3", "-m", "legacy", "--root", "--data-root", "/user_data"]
-    },
-    'foxuserbot': {
-        'command': ["python3", "-m", "fox_userbot", "--root", "--data-root", "/user_data"]
+        'command': ["python3", "-m", "heroku", "--root", "--data-root", "/user_data", "--no-web"]
     },
     'hikka': {
         'command': ["python3", "-m", "hikka", "--root", "--data-root", "/user_data", "--no-web"]

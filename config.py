@@ -144,12 +144,14 @@ class DynamicServers(dict):
         return len(bot_state.servers_cache)
     def __iter__(self):
         return iter(bot_state.servers_cache)
+
+SERVERS = DynamicServers()
 TARIFFS = {
     'lite': {'name': '💡 Lite', 'ram_mb': 512, 'disk_gb': 5, 'price_rub': 59},
     'pro':  {'name': '🚀 Pro',  'ram_mb': 1024, 'disk_gb': 10, 'price_rub': 129},
 }
 
 IMAGES = {
-    'hikka':  {'name': '🌕 Hikka', 'image_name': 'hikka'},
-    'heroku': {'name': '🪐 Heroku', 'image_name': 'heroku'},
+    'hikka':  {'name': '🌕 Hikka', 'image_name': 'hikariatama/hikka:latest'},
+    'heroku': {'name': '🪐 Heroku', 'image_name': 'hikariatama/hikka:latest'},
 }
